@@ -1,0 +1,1 @@
+set path to c:\frrpts,M:\dev\Freddie\NoIdxFrAcctReports\forms,M:\dev\Freddie\NoIdxFrAcctReports\reports
