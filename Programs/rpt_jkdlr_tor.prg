@@ -1,0 +1,2050 @@
+* start of report constants.....
+#DEFINE _RPT_CUSTOMER_NO 1
+#DEFINE _RPT_CURRENT_MONTH_BILLING 2
+#DEFINE _RPT_ADDITIONAL_BILLING_FRAN 3 
+#DEFINE _RPT_ClIENT_SUPPLIES 4
+#DEFINE _RPT_ADDITIONAL_BILLING_OFFICE 5
+#DEFINE _RPT_TOTAL_BILLING 6
+
+#DEFINE _RPT_UPDATE 1
+#DEFINE _RPT_DELETE 2
+
+DO GenerateFranchiseReportData
+
+*========================================
+* Purpose:	
+* Parameters:
+*		pSysOffice - the office the report will be run for...
+*		pDlrCode - the franchise code to be processed...
+*========================================
+FUNCTION GenerateFranchiseReportData
+	PARAMETERS pSysOffice,pBillMonth,pBillYear,pBegFran,pEndFran
+
+*!*		cDataLoc="Canada$"
+*!*		pSysOffice="TOR001"
+*!*		pBillMonth=7
+*!*		pBillYear=2006
+*!*		pBegFran="001021"
+*!*		pEndFran="001021"
+
+	*-------------------------------------------
+	* module level declarations....
+	EXTERNAL ARRAY mAryCustTot
+		
+	PRIVATE mCalcBP
+	PRIVATE mBillMonth
+	PRIVATE mBillYear
+	PRIVATE mBegFran
+	PRIVATE mEndFran
+	PRIVATE mRptDate
+	PRIVATE mSysTime
+	PRIVATE mSysOffice
+	PRIVATE mDlrCode
+	PRIVATE mNoteDate
+	PRIVATE mfNote1
+	PRIVATE mfNote2
+	PRIVATE mRebatePercent
+	Private	mAcctFee
+	PRIVATE mRebateAmt	
+	PRIVATE mIdx
+	PRIVATE mCustStat
+  	PRIVATE mContBill
+
+	*--> KMC 12/8/2004 
+	PRIVATE mDlr_ID
+	*-->
+	
+	* initialize module level variables
+	mCalcBP = .T.
+	mBillMonth = pBillMonth
+	mBillYear = pBillYear
+	mBegFran = ALLTRIM(pBegFran)
+	mEndFran = ALLTRIM(pEndFran)
+	mRptDate =  CMONTH(DATE()) + " " + LTRIM(STR(DAY(DATE()),2)) + ", " + STR(YEAR(DATE()),4)
+	mSysTime = LEFT(TIME(),5)
+	mSysOffice= pSysOffice
+	mDlrCode = ""
+	mNoteDate = ""
+	mfNote1 = 0
+	mfNote2 = 0
+	mRebatePercent = 0
+	mAcctFee = 0
+	mRebateAmt = 0
+	mIdx = 0
+	mCustStat = ""
+  	mContBill = 0      
+
+	*--> KMC 12/8/2004 
+	mDlr_Id=""
+	*-->	
+	
+	*-------------------------------------------
+
+	*-------------------------------------------
+	* needed for customers with multiples ff's
+	PRIVATE mFirstOne
+	mFirstOne = .t.		
+	*-------------------------------------------
+
+	*-------------------------------------------
+	* If the file BPasValue exists, you need to treat the jkcmpfil.Business value
+	* just as it is, not as a % value.  Added for Australia, their BP is a fixed
+	* amount, not a % of revenue.  KMC 10/27/99
+	if file('BPasVal')
+	  mCalcBP = .F.
+	endif    
+	*-------------------------------------------
+
+	* CLEAR && 06/11/2003 KMC - This clears the active form, don't want to clear it at this time.
+
+	*-------------------------------------------
+	* open control tables and control variables
+*	USE jkcmpfil INDEX jkcmpfil IN 1 ALIAS tblCompany 
+	USE jkcmpfil ORDER company_no IN 1 ALIAS tblCompany 
+
+	PRIVATE mTaxAll
+	PRIVATE mBa1
+	PRIVATE mBa2
+	PRIVATE mBa3
+	PRIVATE mBa4
+	PRIVATE mBs1
+	PRIVATE mBs2
+	PRIVATE mBs3
+	PRIVATE mBs4
+	
+	*--> KMC 02/01/2005
+	*PRIVATE mRoyalty
+	*-->
+	
+	Private mDFFIBPay
+	Private mmDFFIBPy1
+	Private mDFFIBPy2
+
+	mTaxAll = tblCompany.tax_all
+	mBa1 = tblCompany.bt_amtmo1
+	mBa2 = tblCompany.bt_amtmo2
+	mBa3 = tblCompany.bt_amtmo3
+	mBa4 = tblCompany.bt_amtmo4
+	mBs1 = tblCompany.bt_sales1
+	mBs2 = tblCompany.bt_sales2
+	mBs3 = tblCompany.bt_sales3
+	mBs4 = tblCompany.bt_sales4
+	*mRoyalty = tblCompany.royalty
+	
+	*-------------------	
+	* KMC 05/10/2002
+	mDFFIBPy1 = tblCompany.FFIBPay  
+	* KMC 05/20/2002 To Accomodate WDC's dual UFOC Dates.
+	* One for Maryland, one for all others.
+	* FFIBPay in jkcmpfil is for All Others, 
+	* mDFFIBPay2 is for WDC only, Franchisees in Maryland only.
+	if left(tblCompany.company_no,5) = "WDC27"
+		mDFFIBPy2 = tblCompany.FFIBPay2
+	endif	
+	*-------------------
+	sele tblCompany
+	use
+		
+	*-------------------------------------------
+
+	*-------------------------------------------
+	PRIVATE tmpMon = ""
+	tmpMon = STR(mBillMonth ,2)
+
+	IF SET("DATE") = "BRITISH"
+	  mNoteDate = gomonth(ctod("05/" + tmpMon + "/" + right(str(mBillYear ),4)),1)
+	ELSE
+	  mNoteDate = gomonth(ctod(tmpMon + "/05/" + right(str(mBillYear ),4)),1)
+	ENDIF
+	*-------------------------------------------
+
+	*-------------------------------------------
+	* opening data tables...
+	
+	lMsg = "Opening Databases..."
+	WAIT WINDOW lMsg NOWAIT
+
+	*--> KMC 09/16/2011
+	if file (cDataLoc+'AFRebPct.dbf')
+		use AFRebPct in 0
+		*--> KMC 02/18/2009 - Structure of AFRebPct table is:
+		*--> amt[x]beg N(12,2)
+		*--> amt[x]end N(12,2)
+		*--> rebpct(x) N(5,2)
+		*--> Repeat for x=1 to 4 (except that there is no amt4end field).
+		*--> Table will have one record with 11 fields - amt1beg thru amt4beg and so on.
+		*--> KMC 09/16/2011 - Added date field 'end_date', this allows for use of multiple rebate lookups based on franchisee sign date.
+		*--> KMC 09/16/2011 - Was needed by Cleveland.
+		*--> 
+	endif
+
+	*SELECT 1
+*	USE jkdlrfil INDEX jkdlrfil.idx ALIAS tblDlrFil
+	USE jkdlrfil in 0 ORDER key ALIAS tblDlrFil
+	sele tblDlrFil
+	set filter to tblDlrFil.status = "Y" .and. between(tblDlrFil.dlr_code, mBegFran, mEndFran) .and. tblDlrFil.company_no = mSysOffice
+	go top
+
+	*SELECT 2
+	*--> 08/12/2002 Using cdx tag now. 
+	*USE jkdlrtrx INDEX jkdlrtrx ALIAS tblDlrTrx 
+	USE jkdlrtrx in 0 order key ALIAS tblDlrTrx
+	sele tblDlrTrx
+	SET FILTER TO company_no = mSysOffice .AND. bill_mon = mBillMonth .and. bill_year = mBillYear
+	GO TOP
+
+	*SELECT 3
+*	USE jkcusfil INDEX jkcusfil.idx ALIAS tblCusFil
+	USE jkcusfil in 0 ORDER key ALIAS tblCusFil
+	sele tblCusFil
+	GO TOP
+
+	*--> KMC 03/10/2006 - To address customer transactions applied to some other franchisee.
+*!* 	SELECT 4
+*!*		*use jkcustrx index jkcustrx alias tblCusTrx
+*!*		use jkcustrx ORDER key alias tblCusTrx
+*!*		set filter to tblCusTrx.company_no = mSysOffice and tblCusTrx.bill_mon = mBillMonth and tblCusTrx.bill_year = mBillYear
+*!*		SET RELATION TO mSysOffice + tblCusTrx.dlr_code + tblCusTrx.cust_no into tblCusFil
+*!*		go top
+	*--> KMC 04/12/2006
+	*select company_no, iif(trx_type="I" and !empty(apply_to),left(apply_to,6),dlr_code) as dlr_code, 
+	* KMC 07/07/2006 select company_no, iif(!empty(alltrim(apply_fran)),apply_fran,dlr_code) as dlr_code, 
+
+	*--> KMC 02/10/2012 - To accomodate a percent split of revenue on specific invoices.
+	*--> KMC 02/21/2012 - Comment first group of code that follows and uncomment second group to re-enable the changes that were being
+	*--> worked on (02/10/2012) to allow percent split of revenue from a cust trx between two franchisees.
+	select company_no, iif(len(alltrim(apply_fran))=6,apply_fran,dlr_code) as dlr_code, ;
+		cust_no, bill_mon, bill_year, descr, due_date, eff_date, inv_date, inv_no, quantity, royalty, ;
+		sep_inv, trx_amt, trx_class, trx_no, trx_tax, trx_type, apply_to, pst_tax ;
+	from jkcustrx ;
+	where company_no=mSysOffice ;
+	and bill_mon=mBillMonth ;
+	and bill_year=mBillYear ;
+	into cursor tblCusTrx 
+
+*!*		sele company_no, dlr_code, ;
+*!*			cust_no, bill_mon, bill_year, descr, due_date, eff_date, inv_date, inv_no, quantity, royalty, ;
+*!*			trx_amt, trx_tax, pst_tax,  ;
+*!*			sep_inv, trx_class, trx_no, trx_type, apply_to, ;
+*!*			apply_fran ;
+*!*		from jkcustrx ;
+*!*		where company_no=mSysOffice ;
+*!*		and bill_mon=mBillMonth ;
+*!*		and bill_year=mBillYear ;
+*!*		and len(alltrim(apply_fran))<>6 ;
+*!*		union ; && Create transactions for revenue that will go to base franchisee.
+*!*		sele company_no, dlr_code, ;  
+*!*			cust_no, bill_mon, bill_year, descr, due_date, eff_date, inv_date, inv_no, quantity, royalty, ;
+*!*			trx_amt-(round(trx_amt*(apply_pct/100),2)) as trx_amt,  ;
+*!*			trx_tax-(round(trx_tax*(apply_pct/100),2)) as trx_tax,  ;
+*!*			pst_tax-(round(pst_tax*(apply_pct/100),2)) as pst_tax,  ;
+*!*			sep_inv, trx_class, trx_no, trx_type, apply_to, ;
+*!*			space(6) as apply_fran ;
+*!*		from jkcustrx ;	
+*!*		where company_no=mSysOffice ;
+*!*		and bill_mon=mBillMonth ;
+*!*		and bill_year=mBillYear ;
+*!*		and len(alltrim(apply_fran))=6 ;
+*!*		union ;  && Create transactions for revenue that will go to other franchisee.
+*!*		sele company_no, iif(len(alltrim(apply_fran))=6,apply_fran,dlr_code) as dlr_code, ;
+*!*			cust_no, bill_mon, bill_year, descr, due_date, eff_date, inv_date, inv_no, quantity, royalty, ;
+*!*			round(trx_amt*(apply_pct/100),2) as trx_amt, ;
+*!*			round(trx_tax*(apply_pct/100),2) as trx_tax, ;
+*!*			round(pst_tax*(apply_pct/100),2) as pst_tax, ;
+*!*			sep_inv, trx_class, trx_no, trx_type, apply_to, ;
+*!*			apply_fran ;
+*!*		from jkcustrx ;	
+*!*		where company_no=mSysOffice ;
+*!*		and bill_mon=mBillMonth ;
+*!*		and bill_year=mBillYear ;
+*!*		into cursor tblCusTrx 
+	*-->
+	
+	sele tblCusTrx
+	index on company_no+dlr_code+cust_no+inv_no to zz
+	SET RELATION TO mSysOffice + tblCusTrx.dlr_code + tblCusTrx.cust_no into tblCusFil
+	go top
+	*-->
+
+	*SELECT 5
+*	USE jkleafil INDEX jkleafil ALIAS tblLeaseFil
+	USE jkleafil in 0 ORDER key ALIAS tblLeaseFil
+
+	*SELECT 6
+*	USE jkdnofil INDEX jkdnofil ALIAS tblDlrNote
+	USE jkdnofil in 0 ORDER key ALIAS tblDlrNote
+
+	*SELECT 7 
+	USE jkcusff in 0 ALIAS tblFF 
+	sele tblFF
+	set order to company_no
+
+	*SELECT 8
+*	USE tmpsprd index tmpsprd alias tblSpread
+	USE tmpsprd in 0 ORDER key alias tblSpread
+	sele tblSpread
+	set filter to bill_mon = mBillMonth .and. bill_year = mBillYear	
+	go top
+
+	*SELECT 9
+	USE jkpstfil in 0 alias tblPostFile
+	sele tblPostFile
+	set order to tran_type
+	set filter to bill_mon = mBillMonth .and. bill_year = mBillYear
+	go top
+
+	use jkactreb order dlr_code in 0 alias tblAcctRebate
+	use jktaxtbl order county in 0 alias tblTax
+
+	*--> KMC 03/12/2003 - Cannot set tax rate here, tax rate is read from jktaxtbl as reports are created.
+	*PRIVATE mLeaseTax
+	*mLeaseTax = tblTax.lease_tax
+	*-->
+
+	select tblDlrFil
+	*set rela to dlr_county into tblTax addi
+	*set rela to dlr_county+dlr_state into tblTax addi  && KMC 02/17/2005 - More accurate to use county + state.
+	set rela to dlr_county into tblTax addi  && KMC 08/30/2007 - Had to change back due to frans in state other than where the office is.
+	
+	use cur_fran in 0 
+	use cur_leas in 0 
+	use cur_cat in 0 
+	
+	*-------------------------------------------
+
+	*-------------------------------------------
+	* begin report processing
+
+	Private lMsg
+	lMsg = ""
+	
+
+	SELECT tblDlrFil	
+	go top
+	DO WHILE .not. EOF() 
+		
+		lMsg = "Now Processing Franchise " + ALLTRIM(tblDlrFil.dlr_code) + "..."
+		WAIT WINDOW lMsg NOWAIT
+		mDlrCode = tblDlrFil.dlr_code
+
+		*--> KMC 12/8/2004 
+		mDlr_Id=tblDlrFil.dlr_id
+		*-->
+		
+		initializeTables() 
+		
+		* these variables are used throughout the
+		* process... here we're just
+		* setting the defaults....
+		store 0 to ;
+			f_cont,f_rev,f_xwrk,CUST_SUPP,f_1_in,f_totl,f_ff,f_ctax,cust_stax,f_royal,f_comm_1_in,;
+	        f_lease,f_le_tax,f_supp,f_stax,f_acct,f_bp,f_bond,f_note,f_sec_note,advertise,;
+	        f_cb,f_misc,f_rom,f_romtax,f_mtax,tot_misc,tax_misc,tot_ro,tax_ro,f_atax,f_fftax,f_rtax,;
+	        f_1tax,f_bptax,f_btax,f_ptax,f_pagers,f_pagers2,f_cbtax,f_ff_down,f_ffd_tax,f_adv,f_advtax,;
+	        ro_deduct,spec_deduct,tot_deduct,f_due,f_note_tax,f_sectax, MON_INT,f_ad,f_adtax, f_feecr, ; 
+	        f_le_pst,f_promo,f_sPst,cust_sPst,f_rev_gst,f_equipmnt, ;
+	        RegMsc_GST,SpcMsc_GST,f_bondTrx,f_adTrx,f_bpTrx,f_pagersTrx,f_acctTrx,f_ffTrx,f_ff_downTrx,f_royalTrx,f_comm_1Trx && KMC 10/27/2005 - More for Canadian Regions
+	        
+	    store " " to f_note_num,f_sec_num
+	    store .F. to xnote,xnote2,xpage,xpage2			
+		store 0 TO trx_ttl, ttl_tax, ttl_trx, m.num_cust
+		store 0 to f_busns_f  && KMC 01/28/2009
+		
+		store 0 to f_tech_fee  && KMC 05/04/2012
+		
+		store 0 to f_busns_ftax, f_busns_fTrx && KMC 11/02/2012
+
+		*----------------------------
+
+		generateCustTrx()		
+		*WAIT WINDOW "generateCustTrx = " + str(m.fran_pymnt)		
+		generateFranCalc()  		
+	*	WAIT WINDOW "generateFranCalc = " + str(m.fran_pymnt)
+		generateFranLease()
+*		WAIT WINDOW "generateFranLease = " + str(m.fran_pymnt)
+		generateFranSupply()		
+*		WAIT WINDOW "generateFranSupply = " + str(m.fran_pymnt)		
+		generateFranMisc()		
+*		WAIT WINDOW "generateFranMisc = " + str(m.fran_pymnt)		
+		generateFranRegion()		
+*		WAIT WINDOW "generateFranRegion = " + str(m.fran_pymnt)		
+		generateFranCB()
+*		WAIT WINDOW "generateFranCB = " + str(m.fran_pymnt)		
+		updateSpreadSheet()		
+*		WAIT WINDOW "updateSpreadSheet = " + str(m.fran_pymnt)		
+		generateFranTotals()		
+*		WAIT WINDOW "generateFranTotals = " + str(m.fran_pymnt)		
+		skip
+		
+	enddo
+	
+	*--> KMC 09/16/2011
+	if used('AFRebPct')
+		curTable=select()
+		sele AFRebPct
+		use
+		select(curTable)
+	endif	
+	*-->
+	
+endfunc
+
+*-------------------------------------------
+
+
+*===========================================
+* start of functions......
+
+*-------------------------------------------
+* Purpose: to calculate rebate
+*-------------------------------------------
+function CalcRebate(rebateElig)
+	
+	lCurFil4 = select()
+	
+	IF rebateElig
+		if used('AFRebPct') && 09/16/2011 - KMC - Added to allow alternate Acct Fee Rebate Calculations.
+			curTable=Select()
+			sele AFRebPct
+			
+			*--> KMC 09/16/2011
+			loca for tblDlrFil.last_renew <= AFRebPct.end_date
+			if !found()
+				go bott
+			endif	
+			*-->
+			
+			DO CASE
+				CASE between(m.F_Totl,Amt1beg,Amt1end)
+  					mRebatePercent = RebPct1
+				CASE between(m.F_Totl,Amt2beg,Amt2end)
+  					mRebatePercent = RebPct2
+				CASE between(m.F_Totl,Amt3beg,Amt3end)
+  					mRebatePercent = RebPct3
+				CASE m.F_Totl>Amt4beg
+  					mRebatePercent = RebPct4
+				OTHERWISE 
+  					mRebatePercent=0
+			ENDCASE
+			select(curTable)
+		else
+			DO CASE
+				CASE between(m.F_Totl,25000.01,45000.00)
+  					mRebatePercent = .5
+				CASE BETWEEN(m.F_Totl,45000.01,65000.00)
+  					mRebatePercent=1.0
+				CASE BETWEEN(m.F_Totl,65000.01,85000.00)
+  					mRebatePercent=1.5
+				CASE m.F_Totl > 85000.00
+  					mRebatePercent=2.0
+				OTHERWISE 
+  					mRebatePercent=0
+			ENDCASE
+			mAcctFee = m.f_acct + m.f_atax
+			mRebateAmt = round(m.F_Totl * (mRebatePercent / 100),2)
+		endif
+	eLSE
+		mRebateAmt = 0.00
+  	ENDIF 
+  	
+  	select(lCurFil4)
+  	
+endfunc
+*-------------------------------------------
+* Purpose: to calculate and generate franchise data
+*-------------------------------------------
+function generateFranCalc
+	
+	lCusFil2 = SELECT()
+	
+	* Check value of CalcBP to see how to 
+	* Calculate BP - used for Austrialia
+	if mCalcBP
+  		f_bp = round((f_rev + f_xwrk + f_1_in) * (tblDlrFil.business / 100),2)
+  	else
+    	f_bp = tblDlrFil.business
+  	endif 
+  	
+  	* set module level values..
+  	mFNote1 = 0 
+	mFNote2 = 0
+	  
+  	if lCanadaMaster  && KMC 10/28/2005 - To accomodate Canada Master's.
+		bp = round((f_rev + f_xwrk + f_1_in + cust_supp) * (tblDlrFil.business / 100),2)
+  	else
+  		bp = round((f_rev + f_xwrk + f_1_in) * (tblDlrFil.business / 100),2)
+    endif
+  	
+  	if tblDlrFil.ded_ad 
+    	f_ad = round((f_rev + f_xwrk + f_1_in + cust_supp) * (tblDlrFil.ad_cur / 100),2)  
+  		*--> KMC 05/04/2012 - FYI f_rev + f_xwrk + f_1_in + cust_supp = f_totl
+  	endif
+ 
+  	if tblDlrFil.pct_flag = "Y"
+    	f_acct = round(f_totl*(tblDlrFil.add_pct / 100),2)
+  	endif
+ 
+ 	*--> KMC 01/28/2009 - Added calculation for Business Fee as per Canadian Master's request.
+  	if lCanadaMaster
+    	f_busns_f = round((f_totl) * (tblDlrFil.busns_pct / 100),2)
+    	*--> FYI - f_totl is everything franchisee billed excluding taxes (f_rev + f_xwrk + f_1_in + cust_supp) 
+  	endif
+ 	*-->
+
+  	*--> KMC 05/04/2012
+  	if tblDlrFil.ded_tech = "Y"
+    	f_tech_fee = round(f_totl*(tblDlrFil.tech_pct / 100),2)
+  	endif
+	*-->
+
+  	
+  	* set beeper data information...
+  	f_pagers = tblDlrFil.num_beeps * tblDlrFil.beep_cost
+	f_pagers2 = tblDlrFil.num_beeps2 * tblDlrFil.beep_cost2
+  	if f_pagers > 0
+     	xpage= .T.
+  	endif
+	if f_pagers2 > 0
+    	xpage2 = .t.
+  	endif
+  	
+  	*--> KMC 01/09/2004 - Do not charge for bond if BP is not charged.
+ 	if lCanadaMaster  && KMC 10/25/2005 - To accomodate Canada Master's (non-Toronto) Ins & Risk Mgmt Fee.
+		*-->KMC 11/28/2005 Corrected Bond Calculation formula.
+		*if f_bond<mBa3 and f_bond>0
+		*	f_bond=mBa3
+		*else && KMC 11/23/2005 - Charge 0 for f_bond if franchisee has 0 total revenue.
+		*	f_bond=0
+		*endif
+		
+		BondRevenue=(f_rev+f_xwrk+f_1_in+cust_supp)
+		
+		*--> KMC 02/03/2010 - No Ins & Risk Mgmt Fee on Neg Billings.
+		*if BondRevenue=0
+		if BondRevenue=<0
+		*-->
+		
+			f_bond=0
+		else
+			*--> 03/05/2008 KMC changed from mBa1/100 to mBa1/1000 to get calculation correct.
+			*--> For instance, users had to enter .30 instead of 3.00 in order for the Ins/Mgmt fee to calc correctly.
+			*--> How it was - 1000 * (.30/100) = 3.00 
+			*--> How it is now - 1000 * (3.00 /1000) = 3.00
+			*--> Users can now enter the ins cost per 1K, as per what the form states. 
+			f_bond=round(BondRevenue*(mBa1/1000),2)+mBa2  
+			if f_bond<mBa3
+				f_bond=mBa3
+			endif
+		endif
+ 		*-->
+		
+ 	else
+ 		if tblDlrFil.Business=0
+		 	f_bond=0
+		else
+		  	do case
+				case (f_rev + f_xwrk + f_1_in) <= 0
+		  	 		f_bond = 0
+				case (f_rev + f_xwrk + f_1_in) <= mBs1 .and. mBs1 # 0
+		 	 		f_bond = mBa1
+				case (f_rev + f_xwrk + f_1_in) <= mBs2 .and. mBs2 # 0
+			 		f_bond = mBa2
+				case (f_rev + f_xwrk + f_1_in) <= mBs3 .and. mBs3 # 0
+ 					f_bond = mBa3
+				case (f_rev + f_xwrk + f_1_in) <= mBs4 .and. mBs4 # 0
+			 		f_bond = mBa4
+			 	endcase
+  		endif
+  	endif
+  	*-->
+  	
+  	*-----------------
+  	* 05/06/2002 KMC 
+	* New franchisees signed from jkcmpfil.FFIBPay forward use FF IB Projected Payment schedule and jkplans2. 
+	* Must have field FFIBPay (Type Date) in jkcmpfil.  Frans signed AFTER this date use the new FF IB pymnt sched.
+    * 05/10/2002 KMC - Changed company.FFIBPay to mDFFIBPay
+	
+	* 05/20/2002 KMC  - To Accomodate WDC's dual UFOC Dates.
+	if left(company_no,5)="WDC27"
+		if tblDlrFil.dlr_state="MD"
+			mDFFIBPay=mDFFIBPy2
+		else
+			mDFFIBPay=mDFFIBPy1 && 10/01/2002 KMC
+		endif
+	else
+		mDFFIBPay=mDFFIBPy1
+	endif		
+  	*-----------------
+  	
+  	* new note calculation routine....	
+	if !empty(mDFFIBPay) and tblDlrFil.date_sign=>mDFFIBPay
+		if tblDlrFil.take_note = "Y"
+ 			* First Payment not yet made.
+ 			if tblDlrFil.pymnt_bill = 0
+ 				
+				*--> KMC 10/23/2002
+ 				*--> Can remove this case statement.  First payment is still pulled when revenue
+				*--> meets or exceeds tblDlrFil.min_sales, no need to hard code the min_sales amount.
+
+				*do case
+				*	case tblDlrFil.plantype = "A"
+  				*		*--> pull first payment when revenue meets or exceeds 500.00.
+   				*		IF f_totl >= 500.00
+     			*			xnote = .T.
+ 				*			f_note = tblDlrFil.fran_pymnt
+				*		endif
+				*		
+				*	otherwise 
+  				*		*--> pull first payment when revenue meets or exceeds 1000.00.
+  				*		IF f_totl >= 1000.00
+     			*			xnote = .T.
+     			*			f_note = tblDlrFil.fran_pymnt
+				*		endif
+				*endcase
+
+				** FRED  11/14/2002	Change 'tblDlr' to 'tblDlrFil'
+				if f_totl=>tblDlrFil.min_sales
+     				xnote = .T.
+     				f_note = tblDlrFil.fran_pymnt
+				endif	
+
+			else
+
+  				*--> pull subsequent payments when revenue meets or exceeds FF IB Payment Amount.
+  				IF tblDlrFil.pymnt_bill < tblDlrFil.pymnt_totl AND f_totl >= tblDlrFil.fran_pymnt	 				
+					xnote = .T.
+   	 	 			f_note = tblDlrFil.fran_pymnt
+				endif
+				
+			ENDIF
+			
+			if xnote
+				f_note_num = ALLTRIM(str(tblDlrFil.pymnt_bill + 1)) + " of " + alltrim(str(tblDlrFil.pymnt_totl))
+				mFNote1 =tblDlrFil.pymnt_bill+1
+				setPostFile(_RPT_UPDATE,"N1")
+			else
+				setPostFile(_RPT_DELETE,"N1")
+			endif
+  				
+  		else
+  		
+			setPostFile(_RPT_DELETE,"N1")
+			
+   		endif
+   		
+  	else
+		
+		* original note calculations		
+	  	if tblDlrFil.take_note = "Y" .and. tblDlrFil.pymnt_bill < tblDlrFil.pymnt_totl .and. ;
+     		((f_rev >= tblDlrFil.min_sales) .or. (mNoteDate >= tblDlrFil.date_2) .or. (tblDlrFil.pymnt_bill > 0))
+     	
+ 			xnote = .T.
+ 			f_note = tblDlrFil.fran_pymnt
+ 			f_note_num = ALLTRIM(str(tblDlrFil.pymnt_bill + 1)) + " of " + alltrim(str(tblDlrFil.pymnt_totl))
+			mFNote1 = tblDlrFil.pymnt_bill +1  
+    	    
+    		setPostFile(_RPT_UPDATE,"N1")
+     	
+  		else
+  			
+  			setPostFile(_RPT_DELETE,"N1")
+
+   		endif
+
+		*--> Second Note routine was here.  KMC 01/03/2005
+
+	endif
+	
+	*--> Second note routine - needs to be evaluated all the time.  KMC 01/03/2005 
+	if tblDlrFil.sec_note = "Y" .and. tblDlrFil.sec_pybill < tblDlrFil.sec_pytotl .and. mNoteDate  > sec_date 
+		xnote2 = .T.
+		f_sec_note = tblDlrFil.sec_pymnt
+		f_sec_num = alltrim(str(tblDlrFil.sec_pybill+1)) + " of " + alltrim(str(tblDlrFil.sec_pytotl))
+		mFNote2 = tblDlrFil.sec_pybill + 1
+		setPostFile(_RPT_UPDATE,"N2")
+	else
+	   	setPostFile(_RPT_DELETE,"N2")
+  	endif	
+	*-->
+	
+	CalcRebate(tblDlrFil.RebElig)
+	
+  	select (lCusFil2) 
+ 
+endfunc
+
+*-------------------------------------------
+* Purpose: to generate customer transactions page...
+*-------------------------------------------
+FUNCTION generateCustTrx()
+	
+	Private lCustNo
+	PRIVATE lIdx
+	PRIVATE lArySize 
+	lCusFil = SELECT()
+		
+	lCustNo = ""
+	lIdx = 1
+	
+	* verify the franchise has customers
+	* transactions....
+	sele tblCusTrx
+  	seek mSysOffice + mDlrCode
+	if eof()   	  	
+		SELECT(lCusFil)
+		return && 03/23/2005 KMC - Killing this return will cause the system to pull old Finders Fees that are NOT on hold (for franchisee's that have no activity).
+	endif
+	
+	* create a dummy array with at least one row
+	* this is done here so that all the following procedures can
+	* access the data
+	DIMENSION mAryCusTot(1,6)
+	* set the default on the first array to empty....
+	mAryCusTot(1,_RPT_CUSTOMER_NO) = ""
+	mAryCusTot(1,_RPT_CURRENT_MONTH_BILLING) = 0
+	mAryCusTot(1,_RPT_ADDITIONAL_BILLING_FRAN) = 0
+   	mAryCusTot(1,_RPT_ClIENT_SUPPLIES) = 0
+	mAryCusTot(1,_RPT_ADDITIONAL_BILLING_OFFICE) = 0
+	mAryCusTot(1,_RPT_TOTAL_BILLING) = 0
+	
+	* load and set the size of the array	
+	lArySize = loadArray(@mAryCusTot)
+		  
+ 	* process transaction as long as the franchise
+ 	* has transactions...
+ 	sele tblCusTrx
+ 	do while mDlrCode = tblCusTrx.dlr_code
+ 	
+ 		* get the index to the customer currently
+ 		* being processed....
+    	lIdx = findArray(tblCusTrx.cust_no,_RPT_CUSTOMER_NO,@lArySize,@mAryCusTot)
+        	
+    	* set the contract billing if applicable...
+      	*--> KMC 10/30/2019
+    	*if !((tblCusFil.canc_date < date()) .and. (tblCusFil.canc_date#CTOD("  /  /  ")))
+		*	if !(tblCusFil.seconddate#CTOD("  /  /  ") .and. tblCusFil.seconddate < DATE())
+		*    	f_cont = f_cont + tblCusFil.cont_bill
+		*	endif
+		*endif    	
+    	if tblCusFil.flag $ "AS"
+	    	f_cont = f_cont + tblCusFil.cont_bill
+    	else
+	   	 	if !((tblCusFil.canc_date < date()) .and. (tblCusFil.canc_date#CTOD("  /  /  ")))
+				if !(tblCusFil.seconddate#CTOD("  /  /  ") .and. tblCusFil.seconddate < DATE())
+			    	f_cont = f_cont + tblCusFil.cont_bill
+				endif
+			endif    	
+		endif
+		*-->
+
+		*--> KMC 04/04/2006
+		*--> To address customer transactions that applied to some other franchisee.
+		if !eof('tblCusFil')
+			mCustRoyaltyPct=tblCusfil.Royalty
+		else
+			m.Sele=select()
+			sele tblCusFil
+			loca for company_no=cCompNo and cust_no=mAryCusTot(lIdx,_RPT_CUSTOMER_NO)
+			if found()
+				mCustRoyaltyPct=tblCusfil.Royalty
+			endif					
+			sele(m.Sele)
+		endif
+		*-->
+
+		*--> KMC 10/09/2006
+		* process records for current customer....
+		*do while mAryCusTot(lIdx,_RPT_CUSTOMER_NO) = tblCusTrx.cust_no 
+		do while mAryCusTot(lIdx,_RPT_CUSTOMER_NO) = tblCusTrx.cust_no and tblCusTrx.dlr_code=mDlrCode 
+      		
+      		* set the multiply by varible	
+      		IF tblCusTrx.trx_type = 'I'
+	        	multiply = 1
+	      	ELSE
+	        	multiply = -1
+	      	ENDIF
+ 			
+ 			ttl_trx = ttl_trx + (trx_amt * multiply)
+ 			ttl_tax = ttl_tax + (trx_tax * multiply)
+ 			trx_ttl = trx_ttl + ((trx_amt + trx_tax)* multiply)
+ 			
+ 			* perform calculations based on tranaction class... 			
+ 			DO CASE
+        		CASE trx_class = "B"
+          			mAryCusTot(lIdx,_RPT_CURRENT_MONTH_BILLING) = mAryCusTot(lIdx,_RPT_CURRENT_MONTH_BILLING) + (trx_amt * multiply)
+          			f_rev = f_rev + (trx_amt * multiply)
+        			*f_royal = f_royal + ((trx_amt * (mCustRoyaltyPct / 100)) * multiply) &&  KMC 06/13/2006 - Addressed after case statement 
+          			f_ctax = f_ctax +  (trx_tax * multiply)
+           		CASE trx_class = "E"
+          			mAryCusTot(lIdx,_RPT_ADDITIONAL_BILLING_FRAN) = mAryCusTot(lIdx,_RPT_ADDITIONAL_BILLING_FRAN) + (trx_amt * multiply)
+          			f_xwrk = f_xwrk + (trx_amt * multiply)
+        			*f_royal = f_royal + ((trx_amt * (mCustRoyaltyPct / 100)) * multiply) &&  KMC 06/13/2006 - Addressed after case statement 
+          			f_ctax = f_ctax +  (trx_tax * multiply)
+        		CASE trx_class = "S"
+         			mAryCusTot(lIdx,_RPT_ClIENT_SUPPLIES) = mAryCusTot(lIdx,_RPT_ClIENT_SUPPLIES) + (trx_amt * multiply)
+          			CUST_SUPP = CUST_SUPP + (trx_amt * multiply)
+        			*f_royal = f_royal + ((trx_amt * (mCustRoyaltyPct / 100)) * multiply) &&  KMC 06/13/2006 - Addressed after case statement 
+          			cust_stax = cust_stax + (trx_tax * multiply)
+  					if "$" $ cDataLoc
+  						cust_sPst = cust_sPst + (pst_tax * multiply)
+          			endif	
+          		CASE trx_class $ "OI"
+          			mAryCusTot(lIdx,_RPT_ADDITIONAL_BILLING_OFFICE) = mAryCusTot(lIdx,_RPT_ADDITIONAL_BILLING_OFFICE) + (trx_amt * multiply)
+          			f_1_in = f_1_in + (trx_amt * multiply)
+        			*f_royal = f_royal + ((trx_amt * (mCustRoyaltyPct / 100)) * multiply) &&  KMC 06/13/2006 - Addressed after case statement 
+					*f_comm_1_in = f_comm_1_in + ((trx_amt *((tblCusTrx.royalty - mCustRoyaltyPct) / 100)) * multiply) &&  KMC 06/13/2006 - Addressed after case statement
+          			f_ctax = f_ctax + (trx_tax * multiply)
+      		ENDCASE
+ 
+   			*--> KMC 06/13/2006 - Moved from Case Statement above.
+   			f_royal = f_royal + ((trx_amt * (mCustRoyaltyPct / 100)) * multiply)
+      		IF trx_class $ "OI"
+				f_comm_1_in = f_comm_1_in + ((trx_amt *((tblCusTrx.royalty - mCustRoyaltyPct) / 100)) * multiply)
+    		ENDIF  		
+    		*-->
+      		
+      		* total it up....
+ 			mAryCusTot(lIdx,_RPT_TOTAL_BILLING) = mAryCusTot(lIdx,_RPT_TOTAL_BILLING) + (trx_amt * multiply)
+      		f_totl = f_totl +(trx_amt * multiply)
+      	
+      		*****************************
+			f_rev_gst = IIF(UPPER(tblCusFil.tax_exempt)='Y',f_rev_gst,f_rev_gst+(ROUND((trx_amt* multiply)*(tblTax.cont_tax/100),2)))
+      		*****************************
+      	
+      		skip
+ 	
+ 		ENDDO
+ 		 	
+    enddo
+    
+    * round total down to 2 
+  	* decimal places for totals.
+  	f_royal = round(f_royal,2)
+    f_comm_1_in = round(f_comm_1_in,2)  && KMC - 06/13/2006
+         
+    * save data...
+    insertIntoCat(lArySize)
+    
+  	release mAryCusTot
+ 
+     *--> KMC 06/07/2006
+    sele jkcustrx
+	repl all for company_no=mSysOffice ;
+		and bill_mon=mBillMonth ;
+		and bill_year=mBillYear ;
+    	and dlr_code = mDlrCode ;
+    	and len(alltrim(apply_fran))<>6 ;
+    	onReport with .t.
+
+	repl all for company_no=mSysOffice ;
+		and bill_mon=mBillMonth ;
+		and bill_year=mBillYear ;
+    	and len(alltrim(apply_fran))=6 ;
+    	and alltrim(apply_fran) = mDlrCode ;
+    	onReport with .t.
+    *-->
+ 
+  	select(lCusFil)
+
+endfunc
+*-------------------------------------------
+* Purpose: to initialize tables that are going to be
+* 		   use to store generate report data...
+* 		   Delete old records just before creating new ones
+*-------------------------------------------
+FUNCTION initializeTables()
+
+	lCurFile = SELECT()
+	
+	sele cur_fran
+	dele all for Month = mBillMonth and Year = mBillYear;
+	and company_no = mSysOffice and dlr_code = mDlrCode 
+
+	sele cur_leas
+	dele all for bill_mon = mBillMonth and bill_year = mBillYear;
+	and company_no = mSysOffice and dlr_code = mDlrCode
+
+	sele cur_cat
+	dele all for bill_mon = mBillMonth and bill_year = mBillYear;
+	and company_no = mSysOffice and dlr_code = mDlrCode
+
+	
+	SELECT(lCurFile)
+	
+ENDFUNC
+*-------------------------------------------
+* Purpose: to load the array referenced in the parameter...
+*		   the function will dynamically add a row to the
+*		   array based need.
+* Parameters: 
+*		pArray = a reference an array...
+*-------------------------------------------
+function loadArray(pArray)
+	
+	PRIVATE lCnt
+	
+	lCnt = 1  
+
+  	sele tblFF  
+  	seek msysoffice + mdlrcode 	
+          		
+  	* currently this test must be done to produce correct resutls....
+  	do while tblff.dlr_code = mdlrcode and .not. eof()
+		 if (tblff.ff_hold = "Y" and str(tblff.ff_holdyr,4) + str(tblff.ff_holdmon,2) <= str(mbillyear,4) + str(mbillmonth,2)) ;
+          		  .or. (tblff.ff_pybill >= tblff.ff_pytotl) ;
+          		  .or. (tblff.ff_balance <= 0 ) ;
+          		  .or. (str(tblff.ff_year,4) + str(tblff.ff_start,2) > str(mbillyear,4) + str(mbillmonth,2))
+          		  
+          	skip
+          	loop		  
+          endif
+      		  
+  		  * if lCnt is greater than one, the dummy record
+  		  * created in the calling function has been used and
+  		  * the a row needs to be added...  		  
+  		  if lCnt > 1  		  	 			
+  			 dimension pArray(lcnt,6)  	
+  			 lCnt= lCnt+ 1
+  		  ELSE
+  		  	 lCnt= lCnt+ 1
+  		  endif
+  			 
+  		  * set the customer number and the default for
+  		  pArray(lCnt-1,_RPT_CUSTOMER_NO) = tblff.cust_no
+    	  pArray(lCnt-1,_RPT_CURRENT_MONTH_BILLING) = 0
+     	  pArray(lCnt-1,_RPT_ADDITIONAL_BILLING_FRAN) = 0
+   	 	  pArray(lCnt-1,_RPT_ClIENT_SUPPLIES) = 0
+     	  pArray(lCnt-1,_RPT_ADDITIONAL_BILLING_OFFICE) = 0
+    	  pArray(lCnt-1,_RPT_TOTAL_BILLING) = 0
+  		  
+  		  skip
+  		  	
+    	  DO while pArray(lCnt-1,_RPT_CUSTOMER_NO) = tblff.cust_no and not eof()
+    		skip
+    	  ENDDO
+    	     	 
+      	
+  	ENDDO
+  	
+  	* return the size o the array...
+	RETURN lCnt-1
+
+endfunc
+
+
+*-------------------------------------------
+* Purpose: to find the index of the data being serach in the
+* 		   module level array... this is currently being used to
+* 		   get the index of the customer currently being processed...
+* 		   if the customer no is not found in the array, its added...
+* Parameters:
+*		plookFor = this the data being search for...
+* 		plookCol = the column to search in...
+*		plookLen = the len of the array being searched...
+*				   passed by reference and updated if a new
+*				   row is entered...
+*		pArray = the array being processed... passed by reference
+*				 and updated by added a critiria not found...
+* Return: 
+*		lIdx = the index of the row data is located on or added...
+*-------------------------------------------
+FUNCTION findArray(plookFor,plookCol,plookLen,pArray)
+	
+	private lIdx
+	PRIVATE lRes
+	lIdx = 0
+	lRes = .F.
+	
+	* loop through array and search for the
+	* matching criteria
+  	FOR xy = 1 to plookLen
+  		IF LEN(pArray(xy,plookCol))= 0  		
+  			lIdx = 0	
+  			exit
+  		ENDif 		
+  		IF plookFor = pArray(xy,plookCol)    		    		
+  			lIdx = xy
+    		lRes = .T.		
+      		EXIT      			
+      	endif	    	
+  	NEXT xy
+  	
+  	* if no match is found then add the a 
+  	* new row and set customer number and defaults
+  	IF lRes = .F.
+  	
+  		* add a new row to the array
+  		DIMENSION pArray(xy,6)
+  		
+  		* set the value for the new row...
+  		pArray(xy,_RPT_CUSTOMER_NO) = plookFor
+    	pArray(xy,_RPT_CURRENT_MONTH_BILLING) = 0
+    	pArray(xy,_RPT_ADDITIONAL_BILLING_FRAN) = 0
+   	 	pArray(xy,_RPT_ClIENT_SUPPLIES) = 0
+    	pArray(xy,_RPT_ADDITIONAL_BILLING_OFFICE) = 0
+    	pArray(xy,_RPT_TOTAL_BILLING) = 0 
+    	
+    	* set the array size to the new value    	 
+    	plookLen = xy  	
+    	
+    	* set the idx to the new item    	
+  		lIdx = xy
+  		
+  	endif
+  	
+  	* return the index where the 
+  	* item was found or added...
+	RETURN lIdx
+	
+endfunc
+*-------------------------------------------
+* Purpose: to process finder's fee's
+*-------------------------------------------
+function processFFs()
+
+	lCusFil3 = select()
+	
+	lSeq1 = .f.  
+		
+  	sele tblFF
+  	SEEK mSysOffice + tblCusFil.dlr_code + tblCusFil.cust_no
+	
+	if FOUND()
+    	do while .not. eof() .and. tblCusFil.cust_no = tblFF.cust_no
+      		ff_num = "None"
+		    ff_amt = 0
+      		ff_dp = .f.
+      		do case
+      			case tblFF.calc_fact $ "SF"
+		        	
+		        	if tblFF.ff_dwnpd = "N"
+		          		ff_dp = .t.
+			            ff_amt = ff_dwnamt
+				        ff_num = "Down Pmt"
+		          		if tblFF.add_on = "Y"
+		            		ff_amt = ff_amt + tblFF.ff_pyamt
+		            		ff_num = "1 of " + alltrim(str(tblFF.ff_pytotl))
+		            		ff_dp = .f.
+		          		endif      
+        			else
+          				ff_amt = tblFF.ff_pyamt
+          				ff_num = alltrim(str(tblFF.ff_pybill+1)) + " of " + alltrim(str(tblFF.ff_pytotl))  
+        			endif
+		        	if ff_amt >= tblFF.ff_balance 
+		          		ff_amt = tblFF.ff_balance
+		          		ff_num = "Final Pmt"
+		        	endif
+		        	if tblFF.ff_pybill+1 = tblFF.ff_pytotl
+		          		ff_num = "Final Pmt"
+		        	endif 
+		        	 
+       			*--> KMC 11/13/2015 - Added for new Multi-Tenant FF type of "X" to allow for 2.5% pymnt amt.
+      			*case tblFF.calc_fact = "M"
+      			case tblFF.calc_fact $ "MX"
+				*-->
+
+          			if mAryCusTot(mIdx,2) - (tblFF.ffcredit +  tblFF.ff_adjtot) > 0 then && KMC 08/05/2002 - Keeps system from charging negative FF's. 
+ 		       			if tblDlrFil.NewFF and str(ff_year,4) + str(ff_start,2) >= str(year(tblDlrFil.ffdate),4) + str(month(tblDlrFil.ffdate),2)
+          					*--> KMC 11/13/2015
+	          				*NEW_FF_PERC = .05
+          					if tblFF.calc_fact = "X"
+	          					NEW_FF_PERC = .025
+          					else
+	          					NEW_FF_PERC = .05
+        					endif
+        					*-->
+        				else
+          					*--> KMC 11/13/2015
+          					*NEW_FF_PERC = .1
+          					if tblFF.calc_fact = "X"
+	          					NEW_FF_PERC = .025
+          					else
+	          					NEW_FF_PERC = .1
+        					endif
+        					*-->
+        				endif
+        				if tblFF.ff_dwnpd = "N"
+          					ff_dp = .t.     
+          					ff_amt = (mAryCusTot(mIdx,2) - (tblFF.ffcredit +  tblFF.ff_adjtot)) * (tblFF.ff_down / 100)
+          					ff_num = "Down Pmt"
+          					if tblFF.add_on = "Y"            
+            					ff_amt = ff_amt + ((mAryCusTot(mIdx,2) - (tblFF.ffcredit + tblFF.ff_adjtot)) * M.NEW_FF_PERC)
+            					ff_num = alltrim(str(round(((tblFF.ff_amtpaid + ff_amt) / tblFF.ff_tot) * 100,2),6,2)) + "% of Totl"
+            					ff_dp = .f.
+          					endif      
+        				else
+          					ff_amt = (mAryCusTot(mIdx,2) - (tblFF.ffcredit + tblFF.ff_adjtot)) * M.NEW_FF_PERC
+          					ff_num = alltrim(str(round(((tblFF.ff_amtpaid + ff_amt) / tblFF.ff_tot) * 100,2),6,2)) + "% of Totl"  
+        				endif          
+        				if ff_amt >= tblFF.ff_balance 
+          					ff_amt = tblFF.ff_balance
+          					ff_num = "Final Pmt"
+        				endif
+        				if tblFF.ff_pybill+1 = tblFF.ff_pytotl
+          					ff_num = "Final Pmt"
+        				endif  
+        			endif	
+
+      			case tblFF.calc_fact = "L"
+      	
+          			if mAryCusTot(mIdx,2) - (tblFF.ffcredit +  tblFF.ff_adjtot) > 0 then && KMC 08/05/2002 - Keeps system from charging negative FF's. 
+	        			if tblFF.ff_dwnpd = "N"        			
+   		       				ff_dp = .t.
+   		       				ff_amt = (mAryCusTot(mIdx,2) - (tblFF.ffcredit + tblFF.ff_adjtot)) * (tblFF.ff_down / 100)
+       		   				ff_num = "Down Pmt"
+          					if tblFF.add_on = "Y"            
+           		 				ff_amt = ff_amt + ((mAryCusTot(mIdx,2) - (tblFF.ffcredit + tblFF.ff_adjtot)) * .1)
+            					if ff_pytotl=99
+              						ff_num = "10% of Currnt"
+            					else  
+              						ff_num = alltrim(str(round(((tblFF.ff_amtpaid + ff_amt) / tblFF.ff_tot) * 100,2),6,2)) + "% of Totl"
+            					endif
+            					ff_dp = .f.
+          					endif      
+        				else          
+          					ff_amt = (mAryCusTot(mIdx,2) - (tblFF.ffcredit + tblFF.ff_adjtot)) * .1
+          					if ff_pytotl=99
+								*--> KMC 01/04/2006
+								*ff_num = "10% of Currnt"
+        						if ff_amt >= tblFF.ff_balance 
+    	     	 					ff_amt = tblFF.ff_balance
+	          						ff_num = "Final Pmt"
+        						else
+									ff_num = "10% of Currnt"
+	      						endif
+	      						*-->
+          					else  
+            					ff_num = alltrim(str(round(((tblFF.ff_amtpaid + ff_amt) / tblFF.ff_tot) * 100,2),6,2)) + "% of Totl"
+          					endif
+        				endif          
+        			endif
+      				
+      			case tblFF.calc_fact = "P"
+		        	
+        			*--> KMC 12/16/2003 - To stop Negative FF when credit exceeds bill amount.
+        			if mAryCusTot(mIdx,2)-(tblFf.ffcredit+tblFF.ff_adjtot)>0 
+ 					*-->       	
+
+			        	if tblFF.ff_dwnpd = "N"
+			          		ff_dp = .t.
+		       
+			          		*--> KMC 12/16/2003
+			          		*ff_amt = (mAryCusTot(mIdx,2) - tblFF.ffcredit) * (tblFF.ff_down / 100)
+			          		ff_amt = (mAryCusTot(mIdx,2) - (tblFF.ffcredit + tblFF.ff_adjtot)) * (tblFF.ff_down / 100)
+			          		*-->
+		       
+			          		ff_num = "Down Pmt"
+			          		if tblFF.add_on = "Y"
+			            		ff_amt = ff_amt + ((mAryCusTot(mIdx,2) - (tblFF.ffcredit + tblFF.ff_adjtot)) * .1)
+			            		if ff_pytotl=99
+			              			ff_num = "10% of Currnt"
+			            		else  
+			              			ff_num = alltrim(str(round(((tblFF.ff_amtpaid + ff_amt) / tblFF.ff_tot) * 100,2),6,2)) + "% of Totl"
+			            		endif
+			            		ff_dp = .f.
+			          		endif      
+			        	else          
+			          		ff_amt = (mAryCusTot(mIdx,2)-(tblFF.ffcredit + tblFF.ff_adjtot)) *.1
+			          		if ff_pytotl=99
+			            		ff_num = "10% of Currnt"
+			          		else  
+			            		ff_num = alltrim(str(round(((tblFF.ff_amtpaid + ff_amt) / tblFF.ff_tot) * 100,2),6,2)) + "% of Totl"
+			          		endif
+			        	endif          
+
+		        	*--> KMC 12/16/2003
+		        	endif
+		        	*-->
+      				
+      			case tblFF.calc_fact = "A"
+        			
+        			*--> KMC 12/16/2003 - To stop Negative FF when credit exceeds bill amount.
+        			if mAryCusTot(mIdx,2)-(tblFF.ffcredit+tblFF.ff_adjtot)>0 
+ 					*-->       	
+
+        				if tblFF.ff_dwnpd = "N"
+          					ff_dp = .t.
+          					
+          					*--> KMC 12/16/2003
+          					*ff_amt = (mAryCusTot(mIdx,2) - tblFF.ffcredit) * (tblFF.ff_down/100)
+          					ff_amt = (mAryCusTot(mIdx,2) - (tblFF.ffcredit+tblFF.ff_adjtot)) * (tblFF.ff_down/100)
+          					*-->
+          					
+          					ff_num = "Down Pmt"
+          					if tblFF.add_on = "Y"            
+		            			ff_amt = ff_amt + ((mAryCusTot(mIdx,2) - (tblFF.ffcredit + tblFF.ff_adjtot)) * .1)
+		            			ff_num = "10% of Currnt"
+		            			ff_dp = .f.
+		          			endif      
+		        		else
+		          			ff_amt = (mAryCusTot(mIdx,2)-(tblFF.ffcredit + tblFF.ff_adjtot)) * .1
+		          			ff_num = "10% of Currnt"
+		        		endif          
+
+		        	*--> KMC 12/16/2003
+		        	endif	
+     				*-->
+   
+     			endcase
+		      	
+		      	if (tblFF.ff_hold = "Y" AND str(tblFF.ff_holdyr,4) + str(tblFF.ff_holdmon,2) <= str(mBillYear,4) + str(mBillMonth,2)) ;
+		          	.or. (tblFF.ff_pybill >= tblFF.ff_pytotl) ;
+		          	.or. (tblFF.ff_balance <=0 ) ;
+		          	.or. (str(tblFF.ff_year,4) + str(tblFF.ff_start,2) > str(mBillyear,4) + str(mBillMonth,2)) 
+		        		ff_num = "None"
+		        		ff_amt = 0
+		      	endif
+		      	
+		      	*-> FK 6/4/04 Put ROUND to all ff_amt
+      			if ff_dp 
+        			f_ff_down = f_ff_down + ROUND(ff_amt,2)
+      			else
+        			f_ff = f_ff + ROUND(ff_amt,2)
+      			endif
+      
+      			* for past reports
+      			lCusFil4 = select()
+      			sele cur_cat
+		  		* Needed for customers with multiple finders fees
+		  		if ff_amt<>0  && 06/11/2002 KMC - Don't save FF records that have 0 for the payment amount.  
+			      	if mFirstOne = .t.  
+					   	repla ff_seq with tblFF.ff_seq
+					   	repla ff_nbr with ff_num
+					   	repla ff_pymnt with ROUND(ff_amt,2)
+					   	repla royalty with tblCusFil.Royalty && KMC 02/04/2005
+					    mFirstOne = .f.
+			   	   	else
+					    append blank
+					  	repla company_no with mSysOffice
+					   	repla bill_mon with mBillMonth
+					   	repla bill_year with mBillYear
+					   	repla dlr_code with mDlrCode
+					   	repla cust_no with mAryCusTot(mIdx,_RPT_CUSTOMER_NO)
+					   	repla ff_seq with tblFF.ff_seq
+					   	repla cust_stat with mCustStat
+					   	repla ff_nbr with ff_num
+					   	repla ff_pymnt with ROUND(ff_amt,2)
+					   	repla royalty with tblCusFil.Royalty  && KMC 02/04/2005
+	 			  	endif      
+				
+      				select tblPostFile
+      				seek mSysOffice + mDlrCode + tblCusFil.cust_no + "FF" + ALLTRIM(STR(tblFF.FF_SEQ))
+      				if eof() 
+						appe blank
+	    				REPL company_no with mSysOffice, dlr_code with mDlrCode, cust_no with tblCusFil.cust_no,;
+   	    				bill_mon with mBillMonth, bill_year with mBillYear, tran_type with "FF" + ALLTRIM(STR(tblFF.FF_SEQ)),;
+  	    				tran_num with iif(ff_dp,0,99), tran_amt with ROUND(ff_amt,2)
+ 	  				else
+       					REPL tran_num with iif(ff_dp,0,99),tran_amt with ROUND(ff_amt,2)
+      				endif
+      			endif
+      			
+      			SELECT(lCusFil4)
+      			      
+      		skip
+      
+    	enddo
+    	
+  	endif
+  	
+  	select (lCusFil3)     
+endfunc
+*-------------------------------------------
+* Purpose: to process franchise leases
+*-------------------------------------------
+function generateFranLease
+	
+	lCusFil2 = SELECT()
+	
+	PRIVATE lLeaseNo = ""
+	
+    sele tblLeaseFil
+    seek mSysOffice + mDlrCode
+   
+    do while .not. eof() .and. mDlrCode = tblLeaseFil.dlr_code
+    	lLeaseNo = tblLeaseFil.lease_no
+ 
+    	*--> KMC 10/08/2004  && To address leases coded "T" for transfer.
+    	*--> Leases coded "T" (transfer) will not be billed to transferring franchisee in month transferred.
+    	*IF pymnt_bill < pymnt_totl and ;
+    	*  (stop # "Y" or (stop = "Y" and ((stop_mon > mBillMonth and stop_year = mBillYear) or stop_year > mBillYear)))
+    	IF pymnt_bill < pymnt_totl and ;
+    	  (stop # "Y" or (stop = "Y" and ((stop_mon > mBillMonth and stop_year = mBillYear) or stop_year > mBillYear))) and ;
+    	  (stop # "T" or (stop = "T" and ((stop_mon > mBillMonth and stop_year = mBillYear) or stop_year > mBillYear)))
+		*-->
+		
+          *--> 03/12/2002 KMC - Code altered so old leases that were taxed month by month
+       	  *--> can now exist and work with new leases that are taxed 100% up front.
+        	*--> Need to verify that jkleafil.paymnt_tax on leases with Tax charged monthly 
+	        *--> is correct and that jkleafil.paymnt_tax on leases that charge 100% up front 
+    	    *--> are set to 0.        
+       		if pymnt_bill = 0
+        		lpay_num = "Down Pmt"
+        		lpay_amt = tblLeaseFil.paymnt_amt * tblLeaseFil.pymnt_adv
+        		if mTaxAll = "Y"
+ 					
+ 					*--> KMC 03/13/2003 - Tax rate is pulled from tax table based on relationship to franchisee.
+ 					*lpay_tax = round((tblLeaseFil.paymnt_amt * tblLeaseFil.Pymnt_totl) * (mLeaseTax / 100),2)
+					lpay_tax = round((tblLeaseFil.paymnt_amt * tblLeaseFil.Pymnt_totl) * (tblTax.lease_tax/100),2)
+					if "$" $ cDataLoc
+ 						lpay_pst = round((tblLeaseFil.paymnt_amt * tblLeaseFil.Pymnt_totl) * (tblTax.pst_rate/100),2)
+        			endif
+        			*-->
+        			
+        		else
+					lpay_tax = round((tblLeaseFil.paymnt_amt * tblLeaseFil.Pymnt_adv) * (tblLeaseFil.Paymnt_Tax / 100),2)
+					if "$" $ cDataLoc
+						lpay_pst = round((tblLeaseFil.paymnt_amt * tblLeaseFil.Pymnt_adv) * (tblLeaseFil.PST_Tax / 100),2)
+        			endif
+        		endif
+        	else
+        		lpay_num = alltrim(str(PYMNT_bill + 1)) + " of " + alltrim(str(PYMNT_totl))
+        		lpay_amt = tblLeaseFil.paymnt_amt
+        		lpay_tax = round(tblLeaseFil.paymnt_amt * (tblLeaseFil.Paymnt_Tax / 100),2)
+				if "$" $ cDataLoc
+    	    		lpay_pst = round(tblLeaseFil.paymnt_amt * (tblLeaseFil.PST_Tax / 100),2)
+        		endif
+        	endif			
+        
+        	f_lease = f_lease + lpay_amt
+        	f_le_tax = f_le_tax + lpay_tax
+
+        	if "$" $ cDataLoc
+        		f_le_pst = f_le_pst + lpay_pst
+        	endif
+        	        	
+        	*--> Populate current lease data.
+ 
+	       	*--> KMC 03/30/2007 (lCurFil3 IS tblLeaseFil, no need to use this variable)
+    		*lCurFil3 = select()        	                	
+			*-->
+
+	        sele cur_leas
+	        append blank
+	        repla company_no with mSysOffice
+	        repla bill_mon with mBillMonth
+	        repla bill_year with mBillYear
+	        repla dlr_code with mDlrCode
+	        repla lease_no with tblLeaseFil.lease_no
+	        repla descripton with tblLeaseFil.descripton
+	        repla make with tblLeaseFil.make
+	        repla model with tblLeaseFil.model
+	        repla serial with tblLeaseFil.serial
+	        repla date_sign with tblLeaseFil.date_sign
+	        repla pymnt_num with lpay_num
+	        repla pymnt_amt with lpay_amt
+	        repla pymnt_tax with lpay_tax 
+			if "$" $ cDataLoc
+		        repla pymnt_pst with lpay_pst 
+			endif
+			    	
+        	select tblPostFile
+        	seek mSysOffice + mDlrCode + "FRANCH" + lLeaseNo 
+        	if eof()
+	         	APPE BLANK
+ 	         	REPL company_no with mSysOffice,dlr_code with mDlrCode,cust_no with "FRANCH",;
+ 	            bill_mon with mBillMonth,bill_year with mBillYear,tran_type with lLeaseNo,;
+				tran_num with iif(tblLeaseFil.pymnt_bill=0,tblLeaseFil.pymnt_adv,tblLeaseFil.pymnt_bill + 1)
+ 	            if "$" $ cDataLoc
+ 	 	           repla tran_amt with lpay_amt + lpay_tax + lpay_pst
+ 	            else
+ 	 	           repla tran_amt with lpay_amt + lpay_tax
+ 	   			endif
+ 	   		else
+  	        	REPL tran_num with iif(tblLeaseFil.pymnt_bill=0,tblLeaseFil.pymnt_adv,tblLeaseFil.pymnt_bill + 1)
+ 	            if "$" $ cDataLoc
+ 	 	           repla tran_amt with lpay_amt + lpay_tax + lpay_pst
+ 	            else
+ 	 	           repla tran_amt with lpay_amt + lpay_tax
+ 	   			endif
+  	   		endif
+  	
+	       	*--> KMC 03/30/2007 (lCurFil3 IS tblLeaseFil, no need to use this variable)
+	       	*select (lCurFil3 )
+	    	*-->   	     
+
+      	else
+      		*--> KMC - 03/30/2007 - Added to delete the post record when a lease was put on hold after
+      		*--> a Fran report was run for a given month.  The problem we had was a Fran report could be run
+      		*--> for a given month with the lease active - this would generate a post record, now if the lease
+      		*--> is put on hold for that month, and the Fren report re-created, the post record would still be
+      		*--> there which would then incorrectly increment the lease payment during the post routine.
+      		IF pymnt_bill < pymnt_totl && KMC 04/03/2007 - Added this so system is not checking on completed leases.
+      			sele tblPostFile	
+        		seek mSysOffice + mDlrCode + "FRANCH" + lLeaseNo 
+				if found()
+					dele
+				endif	      	
+			endif
+      	endif
+
+   		*--> KMC 03/30/2007 - Added the select here after adding the 'else' - select replaces 'select(lCurFil3) from just above.
+   		sele tblLeaseFil  && KMC 03/30/2007
+   		*-->
+      	
+      	skip
+      	
+    enddo
+    
+    select tblDlrTrx
+    seek mDlrCode + "L"
+    do while .NOT. eof() .AND. tblDlrTrx.trx_class = "L" .and. tblDlrTrx.dlr_code = mDlrCode
+      	if trx_type = "I"
+        	multiply = 1
+     	else
+        	multiply = -1
+     	endif
+      	f_lease = f_lease + (tblDlrTrx.trx_amt * multiply)
+      	f_le_tax = f_le_tax + (tblDlrTrx.trx_tax * multiply)
+        if "$" $ cDataLoc
+	      	f_le_pst = f_le_pst + (tblDlrTrx.pst_tax * multiply)
+		endif
+ 
+  		repla tblDlrTrx.OnReport with .T.  && KMC 06/07/2006 - This flags the transaction as being processed for this report.
+
+      	skip      	
+    enddo   
+           
+    seek mDlrCode + "E"
+    do while .NOT. EOF() .AND. tblDlrTrx.trx_class = "E" .and. tblDlrTrx.dlr_code = mDlrCode     	      	
+      	if trx_type = "I"
+        	multiply = 1
+      	else
+        	multiply = -1
+      	endif            	
+      	f_lease = f_lease + (tblDlrTrx.trx_amt * multiply)
+      	f_le_tax = f_le_tax + (tblDlrTrx.trx_tax * multiply)      	
+        if "$" $ cDataLoc
+	      	f_le_pst = f_le_pst + (tblDlrTrx.pst_tax * multiply)
+		endif
+ 
+  		repla tblDlrTrx.OnReport with .T.  && KMC 06/07/2006 - This flags the transaction as being processed for this report.
+
+      	skip      	
+    enddo          
+	    
+    select (lCusFil2)     
+    
+endfunc
+*-------------------------------------------
+* Purpose: to generate the supply report...
+*-------------------------------------------
+function generateFranSupply
+	
+	lCurFil2 = SELECT()
+  	
+  	select tblDlrTrx
+  	seek mDlrCode + "S"  	
+  	do while .not. eof() .and. mDlrCode = tblDlrTrx.dlr_code .and. tblDlrTrx.trx_class = "S"        
+    	if tblDlrTrx.trx_type = 'C'
+      		multiply = -1
+    	else
+      		multiply = 1
+    	endif
+   	
+   		if tblDlrTrx.trx_class = 'S'
+	    	f_supp = f_supp + ((tblDlrTrx.trx_amt * quantity) * multiply)
+    		f_stax = f_stax + ROUND((tblDlrTrx.trx_tax * multiply),2)    	
+	    	if "$" $ cDataLoc
+		    	f_sPst = f_sPst + ROUND((tblDlrTrx.pst_tax * multiply),2)    	
+	    	endif
+	    else
+	    	if "$" $ cDataLoc	    
+		    	f_promo = f_promo + ((tblDlrTrx.trx_amt * quantity) * multiply)
+		    endif	
+	    endif	
+ 
+  		repla tblDlrTrx.OnReport with .T.  && KMC 06/07/2006 - This flags the transaction as being processed for this report.
+
+    	skip
+  	enddo 
+  	
+  SELECT(lCurFil2)     
+  
+endfunc
+*-------------------------------------------
+* Purpose: to generate the miscellenous report...
+*-------------------------------------------
+function generateFranMisc
+	
+	lCurFil2 = select()
+	
+	select tblDlrTrx  
+	
+  	seek mDlrCode + "B"  	
+  	typex = "Bond"
+  	do MiscReport WITH "B",f_bond,f_btax
+ 	
+ 	seek mDlrCode + "J" 	
+  	typex = "Advertising"
+  	do MiscReport with "J",f_ad,f_adtax
+  
+  	seek mDlrCode + "M"
+  	typex = "Misc"
+  	do MiscReport with "M",f_misc,f_mtax
+
+  	*--> 10/9/2001 KMC
+  	seek mDlrCode + "Z"
+  	typex = "Donation"
+  	do MiscReport with "Z",f_misc,f_mtax
+  	*--> KMC	
+
+  	seek mDlrCode + "P"
+  	typex = "Bus Prot"
+  	do MiscReport with "P",f_bp,f_bptax
+  	
+  	seek mDlrCode + "Q"
+  	typex = "Pagers"
+  	do MiscReport with "Q",f_pagers,f_ptax
+
+  	*  X code for advances
+  	*  These transactions were added so that the advances could be
+  	*  seperated for the special trust account recap
+  	*  these amount are reported as special miscellanious on the dealer
+  	*  reports and on the spreadsheet
+  	*
+  	seek mDlrCode + "X"
+  	typex = "Advance"
+  	do MiscReport with "X",f_adv,f_advtax
+
+  	* KMC 08/24/2000 Changed to keep advances out of misc total on spreadsheet.
+  	* put back for STA recap - took advances column off spreadsheet - just like old spreadsheet.
+   	
+   	*--> KMC 11/08/2005 - Removed for Canadian regions - they don't do the STA Recap and they 
+   	*--> DO have the advance column on the spreadsheet.
+   	*f_misc = f_misc + f_adv
+   	*f_mtax = f_mtax + f_advtax
+   	*-->
+   		
+  	* KMC
+
+  	seek mDlrCode + "G"
+  	typex = "Neg. Roll-Over"
+  	do MiscReport with "G",f_misc,f_mtax
+	
+	select(lCurFil2)
+
+endfunc
+*-------------------------------------------
+* Purpose: to generate the regular miscellenous report...
+* Parameters:  not sure why we're passing memory value....
+*-------------------------------------------
+function MiscReport
+	PARAMETERS m.a_class,m.tot,m.tax
+
+	do while .not. eof() .and. mDlrCode = tblDlrTrx.dlr_code .and. tblDlrTrx.trx_class = m.a_class
+    	if tblDlrTrx.trx_type = 'C'
+      		multiply = -1
+    	else
+      		multiply = 1
+    	endif
+    	m.tot = m.tot + (tblDlrTrx.trx_amt * tblDlrTrx.quantity * multiply)
+    	m.tax = m.tax + (tblDlrTrx.trx_tax * multiply)
+
+		*--> KMC 10/27/2005
+		DO CASE
+			CASE m.a_class="B"
+				m.f_bondTrx = m.f_bondTrx + (tblDlrTrx.trx_amt * tblDlrTrx.quantity * multiply)
+			CASE m.a_class="J"
+				m.f_adTrx = m.f_adTrx + (tblDlrTrx.trx_amt * tblDlrTrx.quantity * multiply)
+			CASE m.a_class="P"
+				m.f_bpTrx = m.f_bpTrx + (tblDlrTrx.trx_amt * tblDlrTrx.quantity * multiply)
+		  	CASE m.a_class ="Q"
+  				m.f_pagersTrx = m.f_pagersTrx + (tblDlrTrx.trx_amt * tblDlrTrx.quantity * multiply)
+		ENDCASE	
+		RegMsc_GST = RegMsc_GST + (tblDlrTrx.trx_tax * multiply)		   
+    	*m.tot_misc = m.tot_misc + (tblDlrTrx.trx_amt * tblDlrTrx.quantity * multiply)
+    	*m.tax_misc = m.tax_misc + (tblDlrTrx.trx_tax * multiply)
+		*-->
+ 
+  		repla tblDlrTrx.OnReport with .T.  && KMC 06/07/2006 - This flags the transaction as being processed for this report.
+		
+    	skip
+	enddo  
+ENDFUNC
+*-------------------------------------------
+* Purpose: 	
+* Parameters:  none
+*-------------------------------------------
+FUNCTION generateFranRegion
+	
+	lCurFil2 = SELECT()
+	
+  	select tblDlrTrx
+  	
+  	seek mDlrCode + "A"
+  	typex = "Acct & Admin"
+ 	do MiscReport2 WITH "A",f_acct,f_Atax
+ 	 
+  	seek mDlrCode + "D"
+  	typex = "Finders Fees"
+  	do MiscReport2 with "D",f_ff,f_fftax
+  
+  	seek mDlrCode + "H"
+  	typex = "Finders Fees"
+  	do MiscReport2 with "H",f_ff_down,f_ffd_tax
+  
+  	seek mDlrCode + "F"
+  	typex = "Franchise Note"
+  	do MiscReport2 with "F",f_note,f_note_tax
+  	
+  	seek mDlrCode + "N"
+  	typex = "Second Note"
+  	do MiscReport2 with "N",f_sec_note,f_sectax  
+
+  	seek mDlrCode + "R"
+  	typex = "Royalty"
+  	do MiscReport2 with "R",f_royal,f_rtax
+  	
+  	seek mDlrCode + "T"
+  	typex = "Addtl Bill Comm"
+  	do MiscReport2 with "T",f_comm_1_in,f_1tax
+ 	
+  	seek mDlrCode + "O"
+  	typex = "Misc RO"
+  	do MiscReport2 with "O",f_rom,f_romtax
+ 	
+ 	*--> KMC 11/02/2012	
+  	seek mDlrCode + "K"
+  	
+  	typex = "Business Fee"
+  	do MiscReport2 with "K",f_busns_f,f_busns_ftax
+	*-->
+	
+ 	SELECT(lCurFil2)
+ 
+endfunc
+*-------------------------------------------
+* Purpose: to generate the special miscellenous report 2...
+* Parameters:  not sure why we're passing memory value....
+*-------------------------------------------
+function MiscReport2
+	PARAMETERS m.a_class,m.tot,m.tax
+	
+	* the calling function selected the table....
+ 	do while .not. eof() .and. mDlrCode = tblDlrTrx.dlr_code .and. tblDlrTrx.trx_class = m.a_class   
+	    if tblDlrTrx.trx_type = 'C'
+	      multiply = -1
+	    else
+	      multiply = 1
+	    endif
+	    m.tot = m.tot + (tblDlrTrx.trx_amt * tblDlrTrx.quantity * multiply)
+	    m.tax = m.tax + (tblDlrTrx.trx_tax * multiply)
+
+		*--> KMC 10/27/2005
+		DO CASE
+			CASE m.a_class="A"
+				m.f_acctTrx = m.f_acctTrx + (tblDlrTrx.trx_amt * tblDlrTrx.quantity * multiply)
+			CASE m.a_class="D"
+				m.f_ffTrx = m.f_ffTrx + (tblDlrTrx.trx_amt * tblDlrTrx.quantity * multiply)
+			CASE m.a_class="H"
+				m.f_ff_downTrx = m.f_ff_downTrx + (tblDlrTrx.trx_amt * tblDlrTrx.quantity * multiply)
+ 			CASE m.a_class = "R"
+ 				m.f_royalTrx = m.f_royalTrx + (tblDlrTrx.trx_amt * tblDlrTrx.quantity * multiply)
+ 			CASE m.a_class = "T"
+ 				m.f_comm_1Trx = m.f_comm_1Trx + (tblDlrTrx.trx_amt * tblDlrTrx.quantity * multiply)  	
+ 	
+ 			*--> KMC 11/02/2012
+ 			CASE m.a_class = "K"
+ 				m.f_busns_fTrx = m.f_busns_fTrx + (tblDlrTrx.trx_amt * tblDlrTrx.quantity * multiply)  	
+			*-->
+	
+		ENDCASE	
+		SpcMsc_GST = SpcMsc_GST + (tblDlrTrx.trx_tax * multiply)		   
+	    *m.tot_ro = m.tot_ro + m.tot
+	    *m.tax_ro = m.tax_ro + m.tax
+		*-->
+ 
+  		repla tblDlrTrx.OnReport with .T.  && KMC 06/07/2006 - This flags the transaction as being processed for this report.
+
+	    skip
+  enddo
+return      
+*-------------------------------------------
+* Purpose: to generate the charge back report..
+* Parameters:  none
+*-------------------------------------------
+function generateFranCB
+	
+	lCusFil2 = SELECT()
+  	
+  	select tblDlrTrx
+  	
+  	seek mDlrCode + "C"
+  	do while .not. eof() .and. mDlrCode = tblDlrTrx.dlr_code .and. tblDlrTrx.trx_class = "C"    
+    	IF tblDlrTrx.trx_type = 'C'
+    		multiply = -1
+    	ELSE
+      		multiply = 1
+    	ENDIF
+        
+    	f_cb = f_cb + (tblDlrTrx.trx_amt * multiply)
+    	f_cbtax = f_cbtax + (tblDlrTrx.trx_tax * multiply)
+    
+     	if trx_type="I" 
+    		*--> KMC 02/23/2017 - Added Tech_CB value.
+    		*f_feecr= f_feecr + Tax + Roy_cb + Acct_cb + Adv_cb + BP_cb
+    		*--> KMC 04/04/2017 - Put it back how it was before 02/23/2017 change (Masters's do not have the tech_cb field in jkdlrtrx).
+    		*f_feecr= f_feecr + Tax + Roy_cb + Acct_cb + Adv_cb + BP_cb + Tech_CB
+    		f_feecr= f_feecr + Tax + Roy_cb + Acct_cb + Adv_cb + BP_cb
+ 			*-->   		
+    	endif
+  
+  		repla tblDlrTrx.OnReport with .T.  && KMC 06/07/2006 - This flags the transaction as being processed for this report.
+
+    	SKIP
+    	
+	enddo      
+  	  	
+  	SELECT(lCusFil2)
+  
+RETURN
+*-------------------------------------------
+* Purpose: to update spreadsheet information
+* Parameters:  none
+*-------------------------------------------
+function updateSpreadSheet
+	lCusfil2 = SELECT()
+  	ro_deduct = ROUND(f_royal + f_acct + f_comm_1_in + ;
+                f_ff + f_supp + f_rom + ;
+                f_note + f_sec_note + f_ff_down + f_tech_fee ,2) && 05/04/2012 - Added Technology Fee.
+                
+ 	spec_deduct = ROUND(f_lease + f_bp + f_bond + f_cb + ;
+                  f_misc + f_pagers + ;
+                  f_pagers2 + f_ad + f_adv,2)  && KMC 11/08/2005 - Added f_adv since that was removed from the f_misc total.
+   
+    *--> KMC 01/28/2009
+    if lCanadaMaster
+   		spec_deduct = spec_deduct + f_busns_f
+   	endif	
+    *-->
+                 
+ 	tot_deduct = ro_deduct + spec_deduct
+    f_due = f_totl - tot_deduct
+     
+    *--> KMC 06/14/2005 - To get reports to match checks to the penny, gst ded will need to be calculated item by item.
+    *tot_dedgst=ROUND((tot_deduct-(f_rom + f_romtax)-f_note-f_sec_note-f_adv)*tblTax.cont_tax/100,2)
+	tot_dedgst = round((f_royal-f_royalTrx)*tbltax.cont_tax/100,2) + ;
+		round((f_acct-f_acctTrx)*tbltax.cont_tax/100,2) + ;
+		round((f_comm_1_in-f_comm_1Trx)*tbltax.cont_tax/100,2) + ;
+		round((f_bp-f_bpTrx)*tbltax.cont_tax/100,2) + ;
+		round((f_bond-f_bondTrx)*tbltax.cont_tax/100,2) + ;
+		round((f_pagers-f_pagersTrx)*tbltax.cont_tax/100,2) + ;
+		round(f_pagers2*tbltax.cont_tax/100,2) + ;
+		round((f_ad-f_adTrx)*tbltax.cont_tax/100,2) + ;
+		round((f_ff-f_ffTrx)*tbltax.cont_tax/100,2) + ;
+		round((f_ff_down-f_ff_downTrx)*tbltax.cont_tax/100,2) + ;
+		f_le_tax + ;
+		f_stax + RegMsc_GST + SpcMsc_GST + ; && KMC 10/27/2005
+		f_cbtax && KMC 06/30/2005 - Added CB Tax (only applicable at the moment to CB Reversals - will always be a credit amt).
+		*round(f_note*tbltax.cont_tax/100,2) + ;  && Per Jill removed 06/30/2005 - no gst tax on fran notes
+	
+		*--> KMC 10/27/2005
+		*round((f_sec_note-f_sec_noteTrx)*tbltax.cont_tax/100,2) + ;
+		*round(f_supp*tbltax.cont_tax/100,2) + ;
+		*-->
+	*-->
+
+	*--> 05/27/2009 KMC - GST Tax on new Business Fee.
+    if lCanadaMaster
+		*--> KMC 11/02/2012
+		*tot_dedgst=tot_dedgst+round(f_busns_f*tbltax.cont_tax/100,2)
+		tot_dedgst=tot_dedgst+round((f_busns_f-f_busns_fTrx)*tbltax.cont_tax/100,2)
+		*-->
+	endif
+	*-->
+
+	*--> KMC 12/09/2005 - Chasing a penny (rounding error).
+	*f_duegst=f_rev_gst-tot_dedgst
+	f_duegst=(f_ctax+cust_stax)-tot_dedgst	
+	*--> 
+	
+	*f_duetot=ROUND((f_due+f_duegst)-(f_le_pst)+((f_pagers+f_pagers2)*(tblTax.pst_rate/100))-f_spst,2)
+	f_duetot=ROUND((f_due+f_duegst)- ;
+		(f_le_pst+ ;
+		(f_pagers*tblTax.pst_rate/100)+ ;
+		(f_pagers2*tblTax.pst_rate/100)+ ;
+		+f_spst),2)
+		
+    select tblSpread
+  	seek mSysOffice + mDlrCode
+  	if eof()
+    	appe blank
+  	endif
+  		
+  	repl company_no with mSysOffice, dlr_code with mDlrCode, Dlr_Id with mDlr_Id, cust_no with "FRANCH", dlr_name with tblDlrFil.dlr_name,;
+       bill_mon with mBillMonth, bill_year with mBillYear, t_contract with F_CONT, t_revenue with f_rev,;
+       t_supplies with cust_supp,t_franchis with f_note, t_bus_prot with f_bp,;       
+       t_lease with f_lease, t_lease_tx with f_le_tax,;
+       t_supp_tax with cust_stax, t_e_work with f_xwrk,;
+       t_1_in with f_1_in, t_dlr_sup with f_supp,;
+       t_chrg_bk with f_cb,;
+       t_inv_ttl with f_totl + cust_stax + f_ctax,t_deduct with ro_deduct - mRebateAmt, t_ttl_ded with tot_deduct,;
+       t_due_dlr with iif(f_due > 0,f_due,0),t_frm_dlr with iif(f_due < 0,f_due,0),;
+       t_cont_tax with f_ctax+cust_stax, ;
+       dlr_sup_tx with f_stax, ;
+       t_sec_note with f_sec_note,;
+       t_acctreb with mRebateAmt,;
+       fees_cr with f_feecr,;
+       t_promo with f_promo,t_cle_pst with f_spst,;
+       t_cli_pst with cust_sPst,;
+       t_gst with (f_ctax+cust_stax)-tot_dedgst,; 
+       t_total_du with f_duetot,;
+       f_gstdeduc with tot_dedgst
+       
+	*--> KMC 12/09/2005 t_gst replace statement above was *--> t_gst with f_duegst,;
+       
+    *t_admin with f_acct + f_atax,t_chrg_bk with f_cb + f_cbtax,t_advance with f_adv + f_advtax,;  && KMC 06/30/2005
+
+	*--> KMC 10/26/2005 
+	if "$" $ cDataLoc
+	   repla t_royalty with f_royal, ;
+	   t_bond with f_bond, ;
+	   t_find_fee with f_ff, ;
+	   t_ff_down with f_ff_down, ;
+	   t_1_in_com with f_comm_1_in, ;
+	   t_admin with f_acct, ;
+	   t_advance with f_adv, ;
+	   t_misc with f_misc, ;
+	   t_misc_ro with f_rom, ;
+	   t_pager with f_pagers + f_pagers2, ;
+	   t_ad with f_ad 
+	else
+	   repla t_royalty with f_royal + f_rtax, ;
+	   t_bond with f_bond + f_btax, ;
+	   t_find_fee with f_ff + f_fftax, ;
+	   t_ff_down with f_ff_down + f_ffd_tax, ; 
+	   t_1_in_com with f_comm_1_in + f_1tax, ;
+	   t_admin with f_acct + f_atax, ;
+	   t_advance with f_adv + f_advtax, ;
+	   t_misc with f_misc + f_mtax, ; 
+	   t_misc_ro with f_rom + f_romtax, ;
+	   t_pager with f_pagers + f_pagers2 + f_ptax, ;
+	   t_ad with f_ad + f_adtax, ;
+	   t_tech_fee with f_tech_fee && KMC 05/04/2012
+	endif
+	*-->	
+	
+	*--> KMC 01/28/2009
+	if lCanadaMaster
+	   	repla t_busns_f with f_busns_f
+	endif	
+  	*-->
+  	
+	select tblAcctRebate
+  	seek mSysOffice + mDlrCode + str(mBillYear,4) + str(mBillMonth,2)
+  	if eof() and mRebateAmt > 0
+		appe blank
+	   	repl company_no with mSysOffice,dlr_code with mDlrCode, ;
+	    	bill_mon with mBillMonth,bill_year with mBillYear, ;
+	    	GrossRev with m.f_totl, AcctFee with mAcctFee, ;
+	    	RebateAmt with mRebateAmt, RebatePerc with mRebatePercent
+	   sele tblDlrFil
+	   repl tblDlrFil.RebBal with tblDlrFil.RebBal + mRebateAmt
+  	else
+	    OldRebate = tblAcctRebate.RebateAmt
+	    repl GrossRev with m.f_totl, AcctFee with mAcctFee, ;
+	         RebateAmt with mRebateAmt, RebatePerc with mRebatePercent
+	    sele tblDlrFil
+	    repl tblDlrFil.RebBal with tblDlrFil.RebBal - OldRebate + mRebateAmt 
+  	ENDIF
+    
+  	SELECT(lCusFil2)
+  
+ENDFUNC
+*-------------------------------------------
+* Purpose: to update spreadsheet information
+* Parameters:  none
+*-------------------------------------------
+function generateFranTotals
+  
+	lCusFil2 = SELECT()
+  
+	*wait window str(lCusFil2)  && Shows 1 which is jkdlrfil
+		
+	*--> 08/28/2000 KMC for past reports
+	scatter memvar
+	insert into cur_fran from memvar
+	sele cur_fran	
+	repla month with mBillMonth
+	repla year with mBillYear
+
+	repla bp_admin1 with mBa1
+	repla bp_admin2 with mBa2
+	if lCanadaMaster && KMC 10/25/2005 - used to calculate Canada's (non-Toronto) Ins & Risk Mgt Fee. 
+		repla bt_sale1 with mBa3
+	else
+		repla bt_sale1 with mBs1
+	endif
+	repla bt_sale2 with mBs2	
+
+	repla afr_cur with mRebateAmt
+	repla afr_bal with tblDlrFil.rebbal
+	
+	*--> KMC 02/17/2005 - For Canadian Regions only
+	*--> cont_tax is treated as GST tax - supp_tax is treated as PST_Tax
+	*--> Need GST tax rate in order to calculate GST tax on Royalty, Acct Fee etc.
+	*--> when printing reports.
+	if "$" $ cDataLoc
+		repla gst_tax with tbltax.cont_tax
+		repla pst_tax with tbltax.pst_rate
+	endif
+	
+	*--> KMC 01/08/2004 - No need to update fran_pymnt with value of f_note.
+	*--> f_note includes note payments from jkdlrtrx (records coded "F"), we ONLY 
+	*--> want the regular scheduled payment amount stored in cur_fran.fran_pymnt.
+	*--> Updating cur_fran.fran_pymnt with the value of f_note will cause the 
+	*--> franchise report to over report the regular note payment by the amount
+	*--> from jkdlrtrx (records coded "F").
+	*=================================
+	* 6/28/2002 --  CJ added f_note to update fran_paymnt in cur_fran
+	*repla fran_pymnt with f_note
+	*=================================
+	*--> KMC
+	
+	*--> KMC - Save payment numbers, note1 and note2.
+	repla pymnt_bill with mFNote1
+	repla sec_pybill with mFNote2
+	*--> 08/28/2000
+
+	SELECT(lCusFil2)
+
+endfunc
+*-------------------------------------------
+* Purpose: 	to insert the data from the array into table...
+* Parameters:  
+*		pArraySize = the size of the array
+*-------------------------------------------
+function insertIntoCat(pArraySize)
+
+  	sele tblCusFil
+  	
+  	* round total down to 2 
+  	* decimal places for totals.
+  	f_royal = round(f_royal,2)
+  	
+	mCustStat = ""
+	mContBill  = 0
+	
+    mIdx = 1
+    
+    do while mIdx <= pArraySize    
+     	xAssignedTrx = .F. && KMC 04/04/2006 - To address customer transactions that are assigned to some other franchisee.
+		seek mSysOffice + mDlrCode + mAryCusTot(mIdx,_RPT_CUSTOMER_NO)       
+
+		*--> KMC 04/04/2006 - This addresses customer transactions that are applied to some other franchisees.
+		if eof()
+			xAssignedTrx = .T.
+			loca for company_no=mSysOffice and cust_no=mAryCusTot(mIdx,_RPT_CUSTOMER_NO)	
+		endif
+		*-->
+			
+		* save data for history reporting.....
+		*--> KMC 01/27/2006
+		*if (tblCusFil.canc_date < date()) .and. (tblCusFil.canc_date#CTOD("  /  /  "))					
+		*	mCustStat = "CANCELLED"
+		*else
+		*	if (tblCusFil.seconddate < date()) .and. (tblCusFil.seconddate#CTOD("  /  /  "))			
+		*		mCustStat = "TRANSFERED"
+		*	else	    	
+	    *		mContBill = tblCusFil.cont_bill
+		*	ENDIF		
+		*endif          
+		if tblCusFil.canc_date < date() and !empty(tblCusFil.canc_date) and tblCusFil.flag="C"				
+			mCustStat = "CANCELLED"
+		else
+			if tblCusFil.seconddate < date() and !empty(tblCusFil.seconddate) and tblCusFil.flag="T"			
+				mCustStat = "TRANSFERED"
+			else	    	
+	    		mContBill = tblCusFil.cont_bill
+			ENDIF		
+		endif          
+		*-->
+
+		*--> 02/05/2005 KMC
+		mRoyalty=tblCusFil.Royalty
+		*-->
+			
+		lCusFil2 = select()
+    	mFirstOne =.t.  
+    	sele cur_cat
+  		append blank
+    	repla company_no with mSysOffice
+    	repla bill_mon with mBillMonth
+    	repla bill_year with mBillYear
+    	repla dlr_code with mDlrcode
+    	repla cust_no with mAryCusTot(mIdx,_RPT_CUSTOMER_NO)
+    	if xAssignedTrx=.F.  && KMC 04/04/2006
+    		repla cont_bill with mContBill 
+ 	   	else
+ 	   		repla cont_bill with 0
+ 	   	endif
+ 	   	repla cur_month with  mAryCusTot(mIdx,_RPT_CURRENT_MONTH_BILLING)
+    	repla adtl_b_frn with mAryCusTot(mIdx,_RPT_ADDITIONAL_BILLING_FRAN) 
+    	repla client_sup with mAryCusTot(mIdx,_RPT_ClIENT_SUPPLIES)
+	    repla adtl_b_ofc with mAryCusTot(mIdx,_RPT_ADDITIONAL_BILLING_OFFICE)
+    	if xAssignedTrx=.F.  && KMC 04/04/2006
+		    repla cust_stat WITH mCustStat
+ 	   	endif
+	    repla royalty WITH mRoyalty  && KMC 02/04/2005
+    	sele (lCusFil2)  
+    	
+    	if xAssignedTrx=.F.  && KMC 04/04/2006
+	  		=processFFs() 
+  		endif
+  		 		
+		mCustStat = ""  	
+		mContBill  = 0
+    
+    	mIdx = mIdx + 1
+	    	
+  enddo
+   
+ENDFUNC
+*-------------------------------------------
+* Purpose: 	to insert ot remove a record from the post file
+* Parameters:  
+*		pMode = determines wether the recprod will be 
+*				added or removed....
+*		pTranType = determines whether the transaction is for the first
+*					note or the second note...  valid values are "N1" and "N2"
+*-------------------------------------------
+FUNCTION setPostFile(pMode,pTranType)
+	
+	lCusFil3 = select()
+	
+	select tblPostFile
+	seek mSysOffice + mDlrCode + "FRANCH" + pTranType
+
+	IF pMode = _RPT_UPDATE		
+		if found()
+			* determine which note is being processed and update the correct fields
+			IF pTranType = "N1"
+				REPL tran_num with tblDlrFil.pymnt_bill + 1,tran_amt with tblDlrFil.fran_pymnt
+			ELSE
+				REPL tran_num with tblDlrFil.sec_pybill + 1,tran_amt with tblDlrFil.sec_pymnt
+			ENDIF     	
+		else
+			* determine which note is being processed and add a new record
+			append blank
+			IF pTranType = "N1"
+				repl company_no with mSysOffice,dlr_code with mDlrCode,cust_no with "FRANCH",;
+				bill_mon with mBillMonth, bill_year with mBillYear,tran_type with pTranType,;
+				tran_num with tblDlrFil.pymnt_bill + 1,tran_amt with tblDlrFil.fran_pymnt
+			ELSE
+				REPL company_no with tblDlrFil.company_no,dlr_code with mDlrCode,cust_no with "FRANCH",;
+				bill_mon with mBillMonth, bill_year with mBillYear, tran_type with pTranType,;
+				tran_num with tblDlrFil.sec_pybill + 1,tran_amt with tblDlrFil.sec_pymnt
+			ENDIF
+		endif
+	ELSE
+ 		* Remove payment record if one 
+ 		* exists and payment was not taken.
+ 		if found()
+ 			delete
+ 		endif	  
+	endif
+	 
+	 select (lCusFil3)   
+
+endfunc

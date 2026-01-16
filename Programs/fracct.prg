@@ -1,0 +1,637 @@
+&& Copyright 2000,2015 Jani-King International, Inc.  All rights reserved.
+SET EXCL OFF
+SET CENTURY ON
+SET DELE ON
+SET TALK OFF
+SET STATUS BAR OFF
+set safety off
+
+*--> KMC 01/24/2006  
+if file('RACfg.dbf')
+	*--> Settings - 0=Disabled, 1=Enabled, A=Add, E=Edit, D=Delete
+	use RACfg in 0 
+	sele RaCfg
+
+	*--> KMC 10/30/2013
+	loca for module = "EOMPost"
+	if !found()
+		append blank
+		repla module with "EOMPost"
+		repla setting with "1"
+		repla ParentMenu with "Company" 
+	endif
+	loca for module = "STARecap"
+	if !found()
+		append blank
+		repla module with "STARecap"
+		repla setting with "1"
+		repla ParentMenu with "Company" 
+	endif
+	*-->
+
+	go top
+	if !eof()
+		xCnt=1
+		Do While !eof()
+			if xCnt=1
+				xDeclarePublicVar="Public "+alltrim(module)
+			else
+				xDeclarePublicVar=xDeclarePublicVar+","+alltrim(module)
+			endif	
+			xCnt=xCnt+1
+			skip
+		EndDo
+		&xDeclarePublicVar
+
+		go top
+		xCnt=1
+		Do while !eof()
+			xVariable=alltrim(module)+"='"+alltrim(Setting)+"'"
+			&xVariable
+			xCnt=xCnt+1
+			skip
+		EndDo
+	endif
+	use
+else
+	*--> Config file is RACfg.dbf, 2 fields, module C(20) and setting C(8).
+	*--> Following are modules is use at this time:
+	*--> FranMaint, FranTrx, CustMaint, CustTrx, TaxUtil, BankAcctInfo, BankPath, STACheck, STACheckReg
+	*--> CreateBillRun, RecallArchInv, RecallDeleInv, ReverseCB, SplitInv, UntranCust, ExportToTele
+	*--> ImportTeleData, ExportInvData, CPIMaint, ArchiveData, STATransfer, BatchEntry, DBUtilities
+	*--> DBUtilities, Fran1099Menu, CustMMFile, FranMMFile, CompFileMaint, ControlFileMaint, ResetParam
+	*--> FranCBMenu, LeaseFileMaint, LeaseTransfer, FranRptsMenu, ConsolBilling, MenCust, MenFran, MenAR, MenUtil
+	*--> CustInv, CustPastDue, CustInsp, FranOblig, FranMiscRpts, FranNatAccts, MgmtRpts
+	*--> Settings values are 0=No Access, 1=Access, A=Add, E=Edit, D=Delete
+	*--> 1AED would be full access, 0 would be no access, 1 would be view only access and so on.
+	messagebox ("Unable to locate Configuration file, Application cannot start. "+CHR(13)+CHR(13) ;
+			   +"           Contact Jani-King Corporate IT Dept!",48," System Alert")
+	quit
+endif	
+*-->
+
+*--> For Registry Updates
+*** Example code is bracketed below
+PUBLIC EXAMPLECODE
+EXAMPLECODE=.T.
+
+
+*** The following should be placed into a .H file and included
+*** in any program that uses the Registry class.
+
+PUBLIC  MAX_INI_BUFFERSIZE
+MAX_INI_BUFFERSIZE=256
+PUBLIC MAX_INI_ENUM_BUFFERSIZE
+MAX_INI_ENUM_BUFFERSIZE=16000
+
+*** Registry roots - You'll likely need these values in your programs
+***                  so add them to FOXPRO.H or to each program that
+***                  uses them.
+PUBLIC HKEY_CLASSES_ROOT
+HKEY_CLASSES_ROOT=-2147483648  && (( HKEY ) 0x80000000 )
+PUBLIC HKEY_CURRENT_USER
+HKEY_CURRENT_USER=-2147483647  && (( HKEY ) 0x80000001 )
+PUBLIC HKEY_LOCAL_MACHINE
+HKEY_LOCAL_MACHINE=-2147483646  && (( HKEY ) 0x80000002 )
+PUBLIC HKEY_USERS
+HKEY_USERS=-2147483645  && (( HKEY ) 0x80000003 )
+
+*** Success Flag
+PUBLIC ERROR_SUCCESS
+ERROR_SUCCESS=0
+
+*** Registry Value types
+PUBLIC REG_NONE
+REG_NONE=0    && Undefined Type (default)
+PUBLIC REG_SZ
+REG_SZ=1	 && Regular Null Terminated String
+PUBLIC REG_BINARY
+REG_BINARY=3    && ??? (unimplemented) 
+PUBLIC REG_DWORD
+REG_DWORD=4    && Long Integer value
+PUBLIC MULTI_SZ
+MULTI_SZ=7	 && Multiple Null Term Strings (not implemented)
+*-->
+
+*--> KMC 10/20/2008 - Added so Windows logged on user is available from anywhere in the App.
+PUBLIC  lpUserIDBuffer, ;
+        nBufferSize, ;
+        RetVal
+
+RetVal         = 0
+lpUserIDBuffer = SPACE(25) && Return buffer for user ID string
+nBufferSize    = 25        && Size of user ID return buffer
+
+DECLARE INTEGER GetUserName IN Win32API AS GetName ;
+        STRING  @lpUserIDBuffer, ;
+        INTEGER @nBufferSize
+
+RetVal=GetName(@lpUserIDBuffer, @nBufferSize)
+
+*messagebox(LEFT(lpUserIDBuffer,nbuffersize-1))
+*-->
+
+lDataPathOk=.F.
+
+DIMENSION amonths(12,2)
+FOR i = 1 TO 12
+	amonths(i,1) = ALLT(STR(i))
+	amonths(i,2) = UPPER(CMONTH(GOMONTH({12/01/90},i)))
+ENDFOR
+
+_SCREEN.CAPTION="NO IDXs - Franchisee Accounting"
+_screen.top=0
+_screen.left=0
+_screen.width=800  && was 632 KMC 12/22/2017
+_screen.height=600 && was 480 KMC 12/22/2017
+_screen.BorderStyle=3
+_screen.Closable=.F.
+*_screen.MaxButton=.F.
+_screen.icon="\bitmaps\jk.ico"
+
+*--> KMC 07/02/2002 Check for correct PDF Printer for creation of PDF files.
+PrinterCount=aprinters(x)
+PDFPrinter=.F.
+for z=1 to PrinterCount
+	*if "BCL easyPDF"$ x(z,1)
+	if "JKPDF"$ x(z,1) && KMC 12/16/2003
+		PDFPrinter=.T.
+	endif
+endfor
+*-->
+
+*--> KMC 01/09/2004 - Set variable vfpPrinter to the default VFP printer when app is first launched.
+*--> Default VFP printer at launch is the windows default printer.
+vfpprinter = SET("printer",3)
+
+*--> KMC 05/06/2008 - No Longer Applicable - now just using mgmtrpts flag from racfg
+*!*	*--> KMC 08/15/2002 Enable/Disable Management Reports Menu Selection.
+*!*	*--> These files have to exist in local FrRpts folder for menu selection to be enabled.
+*!*	mgtReportsOK=.F.
+*!*	if file ("tmpGL.dbf")
+*!*		if file ("tmpGL2.dbf") 
+*!*			mgtReportsOk=.t.
+*!*		endif
+*!*	endif	
+*-->
+
+*--> KMC 02/18/2003 Enable/Disable items for Test Users.
+*--> This file has to exist in local FrRpts folder for menu selection being tested to be enabled.
+fTestOk=.F.
+if file ("OKToTest")
+	fTestOk=.t.
+endif	
+
+*--> KMC 03/13/2008 - Set xLockBoxAvail Flag - Used to enable LockBox Import/Post.
+Public LockBoxAvail
+newStructure=.F.
+xField="LOCKBOX"
+use data_loc in 0
+sele data_loc
+x=FCOUNT('data_loc')
+FOR num=1 TO x
+	thisfield=FIELD(num,'data_loc')
+	IF ALLTRIM(thisfield)=xField
+		newStructure=.T.
+	ENDIF
+ENDFOR
+if newStructure
+	LockBoxAvail=.T.
+else
+	LockBoxAvail=.F.
+endif		
+use
+*-->
+
+lCanadaMaster=.f.
+lBrazil=.f. && KMC 06/26/2009
+
+cDataLoc=""
+cCompNo="" && 01/20/2006 KMC
+cSystemPath=""	&& KMC 06/09/2014
+nSysID=0 		&& KMC 06/09/2014
+
+if file('LastDataPath.dbf')
+	use LastDataPath
+
+	*--> KMC 06/27/2014 - Had to kill the scatter memvar, it was causing a redefined variable (sysID) error on the cust maint page.
+	**--> KMC 06/26/2014 - Added so as to not error when LastDataPath does not yet have fields sysPath and sysID.
+	**--> Upon app exit, those fields will be added.
+	*m.sysPath = ""
+	*scatter memvar
+	*if empty(alltrim(m.sysPath))
+	newStructure = .F.
+	x=FCOUNT('LastDataPath')
+	FOR num=1 TO x
+		thisfield=FIELD(num,'LastDataPath')
+		IF ALLTRIM(thisfield)="SYSPATH"
+			newStructure=.T.
+		ENDIF
+	ENDFOR
+	if !newStructure
+	*-->
+		use data_loc
+		cDataLoc=alltrim(fran_acct)+"\"
+		cSystemPath=alltrim(SystemPath)+"\"	
+		nSystemID=systemID  				
+		use
+		xFileCk=cDataLoc+"jkcmpfil.dbf"
+		if file(xFileCk)
+			set path to &cDataLoc
+		else
+			do form RegionSelect
+		endif		
+	else
+	*-->
+		cDataLoc=alltrim(CurPath)
+		cSystemPath=alltrim(SysPath)	&& KMC 06/09/2014
+		nSystemID=sysID					&& KMC 06/09/2014
+		use
+		xFileCk=cDataLoc+"jkcmpfil.dbf"
+		if file(xFileCk)
+			set path to &cDataLoc
+		else
+			do form RegionSelect
+		endif		
+	endif
+else
+	use data_loc
+	cDataLoc=alltrim(fran_acct)+"\"
+	cSystemPath=alltrim(SystemPath)+"\"	&& KMC 06/09/2014
+	nSystemID=systemID  				&& KMC 06/09/2014
+	use
+	xFileCk=cDataLoc+"jkcmpfil.dbf"
+	if file(xFileCk)
+		set path to &cDataLoc
+	else
+		do form RegionSelect
+	endif		
+endif
+
+if file ('jkcmpfil.dbf')
+	use jkcmpfil in 0
+	sele jkcmpfil
+	loca for control_no=1
+	if found()
+		cCompNo=Company_no
+		cOfficeName=alltrim(dsp_name)
+
+		*--> KMC 06/26/2009
+		*if file(cDataLoc+"CanadaMaster") && Canada Master but NOT Toronto
+		*	lCanadaMaster=.T.
+		*else
+		*	lCanadaMaster=.F.
+		*endif		
+		Do Case
+			Case file(cDataLoc+"CanadaMaster") && Canada Master but NOT Toronto
+ 				lCanadaMaster=.t.
+			Case file(cDataLoc+"Brazil") && Brazil 
+				lBrazil=.t.
+		endcase			
+		*-->
+
+		_screen.caption=cCompNo+" "+cOfficeName+" - "+vfpprinter
+		lDataPathOk=.T.
+		do ProcessAppUpdates  && KMC 01/13/2005
+	else
+		do form RegionSelect
+	endif
+else
+	do form RegionSelect
+endif
+*-->
+
+DO FORM BackGround
+
+clos all
+
+*--> 06/26/2009
+*DO MENU1.MPR
+*if lBrazil
+*	DO MENU_BR.MPR
+*else
+*	DO MENU1.MPR
+*endif
+*-->
+
+*--> 11/13/2015 Flag to enable Business Support Fee vs Accounting Fee 
+*--> PHO and TUC had already been set up via hard coding their company numbers, 
+*--> so that was left in place for now.
+BusSptFlag = .F.
+if file ('BusSpt') or cCompNo $ "PHO221 TUC471"
+	BusSptFlag = .T.
+endif
+*-->
+
+*--> KMC 04/08/2021 - Added case statement to accomodate change for Gulf Coast (Misc reports - Pager Recap Report is Convention Fee Report).
+*--> KMC 08/20/2015 - Added Menu2 for PHO/TUC 
+*--> Their Menu choices associated with Acct Fee Rebate say Business Support Fee Rebate
+*--> KMC 11/13/2015
+**if cCompNo $ "PHO221 TUC471"
+*if BusSptFlag = .T.
+**-->
+*	DO MENU2.MPR
+*else
+*	DO MENU1.MPR
+*endif
+**-->
+do case
+	case BusSptFlag = .t.
+		DO MENU2.MPR
+	case file('PagerAsConvFee')
+		DO MENU_GC.MPR
+	otherwise
+		DO MENU1.MPR
+endcase	
+*-->
+
+***
+* THIS PROGRAM CONVERTS A DOLLAR AMOUNT TO THE CHARACTER REPRESENTATION
+*  IE. 348.95 - THREE HUNDRED FORTY EIGHT AND 95/100 DOLLARS
+*
+**************************************************************************
+*
+*        PROCEDURE SAY0
+*
+**************************************************************************
+FUNCTION sayamt
+PARAMETER m.chk_amt,m.sayamt
+
+*--> KMC 09/30/2021 - To accomodate amount > 999,999.99
+mDigit = 0
+if m.chk_amt =>1000000
+	mDigit = round(((m.chk_amt)/1000000),0)
+	m.chk_amt = m.chk_amt - (mDigit*1000000)
+endif
+*-->
+
+cur_sel = SELECT()
+IF !USED("number")
+	USE (cdatadirectory)+"number" IN 0 ORDER num
+ENDIF	
+SELECT number
+IF m.chk_amt < 1
+	sayamt = 'ONLY '+SUBSTR(STR(m.chk_amt,12,2),11,2)+' CENTS'+REPLICATE('-',62)+;
+		'$'+SUBSTR(STR(m.chk_amt,12,2),9,4)
+ELSE
+	totstr = STR(m.chk_amt,12,2)
+	stramt = TRIM(LTRIM(totstr))
+	d1 = '*'
+	IF m.chk_amt < 10
+		DO say1
+	ELSE
+		IF m.chk_amt < 100
+			DO say2
+		ELSE
+			IF m.chk_amt < 1000
+				DO say4
+			ELSE
+				IF m.chk_amt < 1000000
+					DO say5
+				ENDIF
+			ENDIF
+		ENDIF
+	ENDIF
+	repcalc = 80-(LEN(d1)+LEN(stramt)+12)
+	sayamt = d1+' and '+SUBSTR(totstr,11,2)+'/100'
+*+REPLICATE('-',REPCALC)+'$'+STRAMT
+ENDIF
+SELECT (cur_sel)
+
+*--> KMC 09/30/2021 - To accomodate check amount > 999,999.99
+if mDigit > 0
+	cur_sel = select()  
+	sele number
+	loca for number.num = padl(alltrim(str(mDigit)),3,"0")
+	sayamt = alltrim(number.alpha) + " Million " + sayamt
+	select (cur_sel) 
+endif
+*-->
+
+RETURN sayamt
+
+**************************************************************************
+*
+*        PROCEDURE SAY1
+*
+**************************************************************************
+PROCEDURE say1
+
+IF VAL(SUBSTR(totstr,9,1)) <> 0
+	addu = .T.
+	KEY = '00'+SUBSTR(totstr,9,1)
+	SEEK KEY
+	ds1 = TRIM(alpha)
+ELSE
+	addu = .F.
+ENDIF
+IF addu
+	IF d1 = '*'
+		d1 = ds1
+	ELSE
+		d1 = d1+' '+ds1
+	ENDIF d1 = '*'
+ENDIF
+RETURN
+
+**************************************************************************
+*
+*        PROCEDURE SAY2
+*
+**************************************************************************
+PROCEDURE say2
+
+IF VAL(SUBSTR(totstr,8,1)) = 0
+	DO say1
+	RETURN
+ENDIF
+IF VAL(SUBSTR(totstr,8,2)) < 21
+	KEY = '0'+SUBSTR(totstr,8,2)
+	SEEK KEY
+	ds1 = TRIM(alpha)
+ELSE
+	DO say3
+	RETURN
+ENDIF
+IF d1 = '*'
+	d1 = ds1
+ELSE
+	d1 = d1+' '+ds1
+ENDIF
+RETURN
+
+**************************************************************************
+*
+*        PROCEDURE SAY3
+*
+**************************************************************************
+PROCEDURE say3
+
+IF VAL(SUBSTR(totstr,8,1)) <> 0
+	addu = .T.
+	KEY = '0'+SUBSTR(totstr,8,1)+'0'
+	SEEK KEY
+	ds1 = TRIM(alpha)
+ELSE
+	addu = .F.
+ENDIF
+IF addu
+	IF d1 = '*'
+		d1 = ds1
+	ELSE
+		d1 = d1+' '+ds1
+	ENDIF d1 = '*'
+ENDIF
+DO say1
+RETURN
+
+**************************************************************************
+*
+*        PROCEDURE SAY4
+*
+**************************************************************************
+PROCEDURE say4
+
+IF VAL(SUBSTR(totstr,7,1)) <> 0
+	KEY = '00'+SUBSTR(totstr,7,1)
+	SEEK KEY
+	ds1 = TRIM(alpha)+' Hundred'
+	IF d1 = '*'
+		d1 = ds1
+	ELSE
+		d1 = d1+' '+ds1
+	ENDIF d1 = '*'
+ELSE
+	DO say2
+	RETURN
+ENDIF
+IF VAL(SUBSTR(totstr,8,2)) = 0
+	RETURN
+ENDIF
+IF VAL(SUBSTR(totstr,8,2)) < 21
+	KEY = '0'+SUBSTR(totstr,8,2)
+	SEEK KEY
+	ds1 = TRIM(alpha)
+ELSE
+	DO say3
+	RETURN
+ENDIF
+IF d1 = '*'
+	d1 = ds1
+ELSE
+	d1 = d1+' '+ds1
+ENDIF
+RETURN
+
+**************************************************************************
+*
+*        PROCEDURE SAY5
+*
+**************************************************************************
+PROCEDURE say5
+
+IF m.chk_amt < 21000
+	IF m.chk_amt < 10000
+		KEY = '00'+SUBSTR(totstr,6,1)
+	ELSE
+		KEY = '0'+SUBSTR(totstr,5,2)
+	ENDIF
+	SEEK KEY
+	d1 = TRIM(alpha)+' Thousand'
+ELSE
+	IF m.chk_amt < 100000
+		KEY = '0'+SUBSTR(totstr,5,1)+'0'
+		SEEK KEY
+		d1 = TRIM(alpha)
+		IF VAL(SUBSTR(totstr,6,1)) <> 0
+			KEY = '00'+SUBSTR(totstr,6,1)
+			SEEK KEY
+			d1 = d1+' '+TRIM(alpha)+' Thousand'
+		ELSE
+			d1 = d1+' Thousand'
+		ENDIF
+	ELSE
+		KEY = '00'+SUBSTR(totstr,4,1)
+		SEEK KEY
+		d1 = TRIM(alpha)+' Hundred'
+		IF VAL(SUBSTR(totstr,5,2)) = 0
+			d1 = d1+' Thousand'
+		ELSE
+			IF VAL(SUBSTR(totstr,5,2)) < 21
+				IF VAL(SUBSTR(totstr,5,2)) < 10
+					KEY = '00'+SUBSTR(totstr,6,1)
+				ELSE
+					KEY = '0'+SUBSTR(totstr,5,2)
+				ENDIF
+				SEEK KEY
+				d1 = d1+' '+TRIM(alpha)+' Thousand'
+			ELSE
+				KEY = '0'+SUBSTR(totstr,5,1)+'0'
+				SEEK KEY
+				d1 = d1+' '+TRIM(alpha)
+				IF VAL(SUBSTR(totstr,6,1)) <> 0
+					KEY = '00'+SUBSTR(totstr,6,1)
+					SEEK KEY
+					d1 = d1+' '+TRIM(alpha)+' Thousand'
+				ELSE
+					d1 = d1+' Thousand'
+				ENDIF
+			ENDIF
+		ENDIF
+	ENDIF
+ENDIF
+DO say4
+RETURN
+
+***********************************************************
+*
+*  Print the check register.
+*
+***********************************************************
+
+FUNCTION print_register
+
+PARAMETER dat,typ,cttl
+
+dckdate = dat
+csatype = typ
+ctitle = ALLT(cttl)
+
+DO CASE
+	CASE USED('checks')
+		SELECT *;
+			FROM checks;
+			WHERE ckdate = dckdate AND;
+				satype = csatype AND;
+				comp_gen ;
+			INTO CURSOR ckreg
+	CASE USED('checkbook')
+		SELECT *;
+			FROM checkbook;
+			WHERE ckdate = dckdate AND;
+				satype = csatype AND;
+				comp_gen ;
+			INTO CURSOR ckreg
+
+	OTHERWISE	
+		USE	(cchkloc)+'ckbook' IN 0 ALIAS chks
+		SELECT *;
+			FROM chks;
+			WHERE ckdate = dckdate AND;
+				satype = csatype AND;
+				comp_gen ;
+			INTO CURSOR ckreg
+ENDCASE
+	
+SET CENTURY OFF
+REPORT FORM "Check Register2.FRX" TO PRINT NOCONSOLE
+SET CENTURY ON
+USE
+
+*!*	SELECT checks
+*!*	USE
+
+RETURN
+ENDFUNC
+
+  
