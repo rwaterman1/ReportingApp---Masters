@@ -1,0 +1,14 @@
+SET DELE OFF
+SELECT Jkcusfil.cus_name, Jkcuscol.spoke_with, Jkcuscol.cust_no,;
+  Jkcuscol.call_date, Jkcuscol.call_time, Jkcuscol.stat_otr,;
+  Jkcuscol.action_otr, Jkcuscol.call_back, Jkcuscol.Call_Com, ;
+  jkcusfil.bill_phone, jkcusfil.cont_1, jkcusfil.cus_city, ;
+  jkcusfil.cus_state, jkcusfil.cus_addr, jkcusfil.cus_zip, ;
+  jkcusfil.cont_bill ;
+FROM jkcuscol, jkcusfil;
+WHERE Jkcuscol.cust_no = Jkcusfil.cust_no AND ;
+BETWEEN(Jkcuscol.Call_Date,m.f_date,m.t_date) AND ;
+BETWEEN(Jkcuscol.Cust_No,m.F_Cust,m.T_Cust) ;
+ORDER BY Jkcusfil.cus_name, Jkcusfil.Cust_No, Jkcuscol.Call_Date, Jkcuscol.Call_Time ;
+INTO CURSOR CollectionCalls
+SET DELE ON  

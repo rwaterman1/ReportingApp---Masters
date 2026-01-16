@@ -1,0 +1,9 @@
+SET DELE OFF
+SELECT callbdate, cust_no, cus_name, ;
+   cont_1, bill_phone ;
+ FROM jkcusfil ;
+ WHERE callbdate <= m.t_date ;
+    AND callbdate#{  /  /  } ;
+ ORDER BY callbdate, cust_no ;
+ INTO CURSOR CallBackList
+SET DELE ON

@@ -1,0 +1,15 @@
+**->  04/16/2001 KMC
+*use jkcmpfil
+*cDisplayName=dsp_name
+*use
+
+SET TALK ON
+SET DELE OFF
+
+SELECT ckdate, ckpayee, reason, amount, right(alltrim(str(recno())),3) as id FROM jkothdep ; 
+     WHERE BETWEEN (ckdate, dfirstdate, denddate) ;
+     and !DELETED() ;
+INTO CURSOR SELECTEDDEPOSITS
+
+SET TALK OFF
+SET DELE ON

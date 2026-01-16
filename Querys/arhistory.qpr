@@ -1,0 +1,74 @@
+PARAMETERS SelectionCriteria
+
+IF SelectionCriteria="Customer Number"
+  cSelect="Cust_No"
+ELSE
+  cSelect="Cust_Name"
+ENDIF    
+
+*!*	use jkcmpfil
+*!*	cDisplayName=dsp_name
+*!*	loca for control_no = 2
+*!*	nocmp = jkcmpfil.company_no
+*cDisplayName=cOfficeName
+*--> Added 09/13/2000 to Identify Toronto  KMC
+*go top
+*comp=jkcmpfil.company_no
+comp=cCompNo 
+*--> End of Add
+*use
+
+SET TALK ON
+SET DELE OFF
+
+if cCompNo="TOR001"
+	SELECT dlr_code, cust_no, cust_name, Descr, inv_no, ;
+	   Date_inv, Date_due, (Jkarofil.itm_amt+Jkarofil.itm_tax+Jkarofil.pst_tax)AS InvoiceAmt, ;
+	   check_date, check_dat2, check_dat3, check_dat4, check_dat5, ;
+	   check_no, check_no2, check_no3, check_no4, check_no5, check_amt, ;
+	   check_amt2, check_amt3, check_amt4, check_amt5 ;
+	FROM jkarofil ;
+	WHERE Company_No=cCompNo ;
+		AND BETWEEN(&cSelect,cFirstCust,cThruCust) ;
+		AND Date_Inv>=GOMONTH(DATE(),-nMonthsToInclude) ;
+	    AND !DELETED() ; 
+	UNION SELECT dlr_code, cust_no, cust_name, Descr, inv_no, ;
+	   Date_inv, Date_due, (arohist.itm_amt+arohist.itm_tax+arohist.pst_tax)AS InvoiceAmt, ;
+	   check_date, check_dat2, check_dat3, check_dat4, check_dat5, ;
+	   check_no, check_no2, check_no3, check_no4, check_no5, check_amt, ;
+	   check_amt2, check_amt3, check_amt4, check_amt5 ;
+	FROM arohist ;
+	WHERE Company_No=cCompNo ;
+		AND BETWEEN(&cSelect,cFirstCust,cThruCust) ;
+		AND Date_Inv>=GOMONTH(DATE(),-nMonthsToInclude) ;
+	    AND !DELETED() ; 
+	INTO CURSOR Aging
+	sele aging
+	index on cust_no+dtoc(date_inv) to x
+else
+	SELECT dlr_code, cust_no, cust_name, Descr, inv_no, ;
+	   Date_inv, Date_due, (Jkarofil.itm_amt+Jkarofil.itm_tax)AS InvoiceAmt, ;
+	   check_date, check_dat2, check_dat3, check_dat4, check_dat5, ;
+	   check_no, check_no2, check_no3, check_no4, check_no5, check_amt, ;
+	   check_amt2, check_amt3, check_amt4, check_amt5 ;
+	FROM jkarofil ;
+	WHERE Company_No=cCompNo ;
+		AND BETWEEN(&cSelect,cFirstCust,cThruCust) ;
+		AND Date_Inv>=GOMONTH(DATE(),-nMonthsToInclude) ;
+	    AND !DELETED() ; 
+	UNION SELECT dlr_code, cust_no, cust_name, Descr, inv_no, ;
+	   Date_inv, Date_due, (arohist.itm_amt+arohist.itm_tax)AS InvoiceAmt, ;
+	   check_date, check_dat2, check_dat3, check_dat4, check_dat5, ;
+	   check_no, check_no2, check_no3, check_no4, check_no5, check_amt, ;
+	   check_amt2, check_amt3, check_amt4, check_amt5 ;
+	FROM arohist ;
+	WHERE Company_No=cCompNo ;
+		AND BETWEEN(&cSelect,cFirstCust,cThruCust) ;
+		AND Date_Inv>=GOMONTH(DATE(),-nMonthsToInclude) ;
+	    AND !DELETED() ; 
+		INTO CURSOR Aging
+		sele aging
+		index on cust_no+dtoc(date_inv) to x
+endif
+SET DELE ON
+SET TALK OFF

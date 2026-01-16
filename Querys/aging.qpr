@@ -1,0 +1,102 @@
+SET DELE On
+
+*--> 06/12/2001 KMC Determine if searching by number or name
+srchField="jkcusfil.cust_no"
+rptOrder="3,4"  && cust_no, cust_name
+
+if cSearch="Name" && KMC 01/20/2003 - Searching by Customer Name.
+	srchField="jkcusfil.cus_name"
+	rptOrder="4,3" && cust_name, cust_no
+endif
+*-->
+		
+use jkcmpfil
+cDisplayName=dsp_name
+loca for control_no = 2
+nocmp="     "
+if !eof('jkcmpfil')
+	nocmp = jkcmpfil.company_no
+endif
+use
+
+*--> KMC 10/04/2007
+*if cCompNo="TOR001" or cCompNo="WIN021"
+
+*--> KMC 07/30/2010 - Removed "-" from end of variables below.
+*--> Moved that minus sign to the appropriate position of the queries that follow.
+*--> After the change I was able to use the variables ItemsToAdd and ItemsToAdd2 
+*--> to create the field inv_amount in the queries that follow.
+if "$" $ cDataLoc
+	ItemsToAdd="(Jkarofil.itm_amt+Jkarofil.itm_tax+Jkarofil.pst_tax)"
+	ItemsToAdd2="(Arohist.itm_amt+Arohist.itm_tax+Arohist.pst_tax)"
+else
+	ItemsToAdd="(Jkarofil.itm_amt+Jkarofil.itm_tax)"
+	ItemsToAdd2="(Arohist.itm_amt+Arohist.itm_tax)"
+endif
+*-->
+
+set talk on
+
+if nInclArchived=1
+	SELECT jkcusfil.cus_phone, Jkarofil.dlr_code, Jkarofil.cust_no, Jkarofil.cust_name, ;
+  		Jkarofil.inv_no, Jkarofil.Date_inv, Jkarofil.Date_due, ;
+  		&ItemsToAdd as inv_amount, ;
+		&ItemsToAdd ;
+  		-(iif(jkarofil.check_date=<dPayDate,Jkarofil.check_amt,0) ;
+  		+iif(jkarofil.check_dat2=<dPayDate,Jkarofil.check_amt2,0) ;
+  		+iif(jkarofil.check_dat3=<dPayDate,Jkarofil.check_amt3,0) ;
+  		+iif(jkarofil.check_dat4=<dPayDate,Jkarofil.check_amt4,0) ;
+  		+iif(jkarofil.check_dat5=<dPayDate,Jkarofil.check_amt5,0)) AS Bal_Due, ;
+	    iif("CHARGED-BK" $ check_no5,"Y","N") as CB ;
+	FROM jkarofil, jkcusfil ;
+	WHERE jkarofil.Company_No#nocmp ;
+   	  AND Date_Inv < nFirstDatex ;
+   	  AND BETWEEN(&srchField,cFirstCust,cThruCust) ;
+	  AND date_inv => nFirstDate ;
+	  AND jkcusfil.cust_no=jkarofil.cust_no ;		      
+	HAVING Bal_Due &cOnlyPosBal 0 ; 
+	union ;
+	SELECT jkcusfil.cus_phone, Arohist.dlr_code, Arohist.cust_no, Arohist.cust_name, ;
+  		Arohist.inv_no, Arohist.Date_inv, Arohist.Date_due, ;
+ 		&ItemsToAdd2 as inv_amount, ;
+  		&ItemsToAdd2 ;
+  		-(iif(Arohist.check_date=<dPayDate,Arohist.check_amt,0) ;
+  		+iif(Arohist.check_dat2=<dPayDate,Arohist.check_amt2,0) ;
+  		+iif(Arohist.check_dat3=<dPayDate,Arohist.check_amt3,0) ;
+  		+iif(Arohist.check_dat4=<dPayDate,Arohist.check_amt4,0) ;
+  		+iif(Arohist.check_dat5=<dPayDate,Arohist.check_amt5,0)) AS Bal_Due, ;
+   	    iif("CHARGED-BK" $ check_no5,"Y","N") as CB ;
+	FROM Arohist, jkcusfil ;
+	WHERE Arohist.Company_No#nocmp ;
+    	  AND Date_Inv < nFirstDatex ;
+    	  AND BETWEEN(&srchField,cFirstCust,cThruCust) ;
+	  AND date_inv => nFirstDate ;
+	  AND jkcusfil.cust_no=Arohist.cust_no ;		      
+	HAVING Bal_Due &cOnlyPosBal 0 ; 
+	ORDER BY &rptOrder ;
+	INTO CURSOR Aging
+else
+	SELECT jkcusfil.cus_phone, Jkarofil.dlr_code, Jkarofil.cust_no, Jkarofil.cust_name, ;
+  		Jkarofil.inv_no, Jkarofil.Date_inv, Jkarofil.Date_due, ;
+ 		&ItemsToAdd as inv_amount, ;
+  		&ItemsToAdd ;
+  		-(iif(jkarofil.check_date=<dPayDate,Jkarofil.check_amt,0) ;
+  		+iif(jkarofil.check_dat2=<dPayDate,Jkarofil.check_amt2,0) ;
+  		+iif(jkarofil.check_dat3=<dPayDate,Jkarofil.check_amt3,0) ;
+  		+iif(jkarofil.check_dat4=<dPayDate,Jkarofil.check_amt4,0) ;
+  		+iif(jkarofil.check_dat5=<dPayDate,Jkarofil.check_amt5,0)) AS Bal_Due, ;
+		iif("CHARGED-BK" $ check_no5,"Y","N") as CB ;
+	FROM jkarofil, jkcusfil ;
+	WHERE jkarofil.Company_No#nocmp ;
+    	  AND Date_Inv < nFirstDatex ;
+    	  AND BETWEEN(&srchField,cFirstCust,cThruCust) ;
+	  AND date_inv => nFirstDate ;
+	  AND jkcusfil.cust_no=jkarofil.cust_no ;		      
+	HAVING Bal_Due &cOnlyPosBal 0 ; 
+	ORDER BY &rptOrder ;
+	INTO CURSOR Aging
+endif
+set talk off
+clear
+
+
