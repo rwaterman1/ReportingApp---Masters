@@ -1,0 +1,460 @@
+License granted to: ##regstring
+Version: 16.1.00XX
+OS: Windows NT 6.01 64 bit
+CodePage: 1252
+Compiled for: VFP6
+Run under: Visual FoxPro 06.00.8167.00 for Windows
+Main Level: M:\LEGACY_APPS\FRACCTREPORTS_MASTER\XFRX\DIAGNOSIS.FXP
+XFRX Level: M:\LEGACY_APPS\FRACCTREPORTS_MASTER\XFRX\DIAGNOSIS.FXP
+XFRX#INIT: -6 Xfrxlib.fll cannot be loaded (it is missing or invalid)
+
+Locale info
+===========
+
+
+	LOCALE_IDEFAULTLANGUAGE: 1033
+	LOCALE_IDEFAULTCOUNTRY: 1
+	LOCALE_IDEFAULTCODEPAGE: 437
+	LOCALE_IDEFAULTANSICODEPAGE: 1252
+	LOCALE_IDEFAULTMACCODEPAGE: 10000
+
+LOCALE_USER_DEFAULT
+	LOCALE_IDEFAULTLANGUAGE: 1033
+	LOCALE_IDEFAULTCOUNTRY: 1
+	LOCALE_IDEFAULTCODEPAGE: 437
+	LOCALE_IDEFAULTANSICODEPAGE: 1252
+	LOCALE_IDEFAULTMACCODEPAGE: 10000
+
+LOCALE_USER_SYSTEM
+	LOCALE_IDEFAULTLANGUAGE: 1033
+	LOCALE_IDEFAULTCOUNTRY: 1
+	LOCALE_IDEFAULTCODEPAGE: 437
+	LOCALE_IDEFAULTANSICODEPAGE: 1252
+	LOCALE_IDEFAULTMACCODEPAGE: 10000
+
+LOCALE_CUSTOM_DEFAULT
+	LOCALE_IDEFAULTLANGUAGE: 1033
+	LOCALE_IDEFAULTCOUNTRY: 1
+	LOCALE_IDEFAULTCODEPAGE: 437
+	LOCALE_IDEFAULTANSICODEPAGE: 1252
+	LOCALE_IDEFAULTMACCODEPAGE: 10000
+
+
+SET CLASSLIB: 
+SET PROCEDURE: 
+
+CURRDIR: M:\LEGACY_APPS\FRACCTREPORTS_MASTER\XFRX\
+SET PATH: 
+SYS PATH: C:\Windows\system32;C:\Windows;C:\Windows\System32\Wbem;C:\Windows\System32\WindowsPowerShell\v1.0\;C:\Program Files (x86)\Intel\OpenCL SDK\3.0\bin\x86;C:\Program Files (x86)\Intel\OpenCL SDK\3.0\bin\x6
+TMP PATH: C:\USERS\KCAVAN~1\APPDATA\LOCAL\TEMP
+
+
+xfrxlib.vcx: failed - not exists
+
+
+xfrxlib.fll: failed
+xfrxlib.fll - date:     -  -  
+xfrxlib.fll - size: 0
+xfrxlib.fll version required: 132
+xfrxlib.fll - dump error: -1
+
+
+hndlib.dll: m:\legacy_apps\fracctreports_master\xfrx\hndlib.dll
+hndlib.dll - date: 2013-05-03
+hndlib.dll - size: 131072
+hndlib.dll version: 123
+hndlib.dll version required: 126
+hndlib.dll - dump error: 0
+
+hndlib.dll - exported functions:
+	?getPar@@YAHH@Z
+	_eqFSO_Append
+	_eqFSO_AppendAsUnicode
+	_eqFSO_Assign
+	_eqFSO_Deallocate
+	_eqFSO_FormatString4Float
+	_eqFSO_GetInt
+	_eqFSO_GetLength
+	_eqFSO_GetMemoryPointer
+	_eqFSO_PDF_AddBox
+	_eqFSO_SetColor
+	_eqFSO_Substr
+	_eqFSO_setup
+	_eq_fontProcessor_AddText
+	_eq_fontProcessor_Destroy
+	_eq_fontProcessor_GetCount
+	_eq_fontProcessor_Init
+	_eq_fontProcessor_WriteFontFiles
+	_hn_MakeUnicodeString
+	_hn_ToUnicode
+	base64
+	bmp2wmf
+	computeKeys
+	convertFormatString
+	dobmp
+	encryptFile
+	encryptPDFContent
+	esab64
+	fontsub
+	formatBIDIString
+	getFParam
+	getVersion
+	mkPDFString
+	ww
+
+hndlib.dll - Imported functions: 
+	zlib.dll M:\LEGACY_APPS\FRACCTREPORTS_MASTER\XFRX\ZLIB.DLL
+		deflateInit_
+		deflateEnd
+		deflate
+	KERNEL32.dll C:\WINDOWS\SYSTEM32\KERNEL32.DLL
+		GetSystemInfo
+		MultiByteToWideChar
+		VirtualProtect
+		EnterCriticalSection
+		LeaveCriticalSection
+		RaiseException
+		RtlUnwind
+		HeapFree
+		HeapAlloc
+		GetCurrentThreadId
+		GetCommandLineA
+		GetVersionExA
+		GetLastError
+		ReadFile
+		WriteFile
+		CloseHandle
+		SetHandleCount
+		GetStdHandle
+		GetFileType
+		GetStartupInfoA
+		DeleteCriticalSection
+		ExitProcess
+		GetProcAddress
+		GetModuleHandleA
+		TerminateProcess
+		GetCurrentProcess
+		SetUnhandledExceptionFilter
+		TlsAlloc
+		SetLastError
+		TlsFree
+		TlsSetValue
+		TlsGetValue
+		HeapDestroy
+		HeapCreate
+		VirtualFree
+		VirtualAlloc
+		HeapReAlloc
+		IsBadWritePtr
+		SetFilePointer
+		GetModuleFileNameA
+		FreeEnvironmentStringsA
+		GetEnvironmentStrings
+		FreeEnvironmentStringsW
+		WideCharToMultiByte
+		GetEnvironmentStringsW
+		UnhandledExceptionFilter
+		HeapSize
+		InterlockedExchange
+		VirtualQuery
+		SetStdHandle
+		FlushFileBuffers
+		InitializeCriticalSection
+		CreateFileA
+		IsBadReadPtr
+		IsBadCodePtr
+		GetACP
+		GetOEMCP
+		GetCPInfo
+		LoadLibraryA
+		QueryPerformanceCounter
+		GetTickCount
+		GetCurrentProcessId
+		GetSystemTimeAsFileTime
+		SetEndOfFile
+		GetLocaleInfoA
+		GetStringTypeA
+		GetStringTypeW
+		LCMapStringA
+		LCMapStringW
+	USER32.dll C:\WINDOWS\SYSTEM32\USER32.DLL
+		LoadImageA
+	GDI32.dll C:\WINDOWS\SYSTEM32\GDI32.DLL
+		CreateDCA
+		GetCharABCWidthsA
+		GetOutlineTextMetricsA
+		CreateCompatibleDC
+		CreateMetaFileA
+		GetObjectA
+		StretchBlt
+		CloseMetaFile
+		DeleteDC
+		DeleteObject
+		SelectObject
+		CreateFontIndirectA
+		GetFontData
+		SetMapMode
+		DPtoLP
+		GetDeviceCaps
+		GetTextExtentPoint32A
+		GetTextMetricsA
+		DeleteMetaFile
+
+
+zlib.dll: m:\legacy_apps\fracctreports_master\xfrx\zlib.dll
+zlib.dll - date: 2005-12-12
+zlib.dll - size: 72192
+zlib.dll - version: 1.2.1.0
+zlib.dll - dump error: 0
+
+zlib.dll - exported functions:
+	adler32
+	compress
+	compress2
+	compressBound
+	crc32
+	deflate
+	deflateBound
+	deflateCopy
+	deflateEnd
+	deflateInit2_
+	deflateInit_
+	deflateParams
+	deflatePrime
+	deflateReset
+	deflateSetDictionary
+	fill_win32_filefunc
+	get_crc_table
+	gzclearerr
+	gzclose
+	gzdopen
+	gzeof
+	gzerror
+	gzflush
+	gzgetc
+	gzgets
+	gzopen
+	gzprintf
+	gzputc
+	gzputs
+	gzread
+	gzrewind
+	gzseek
+	gzsetparams
+	gztell
+	gzungetc
+	gzwrite
+	inflate
+	inflateBack
+	inflateBackEnd
+	inflateBackInit_
+	inflateCopy
+	inflateEnd
+	inflateInit2_
+	inflateInit_
+	inflateReset
+	inflateSetDictionary
+	inflateSync
+	inflateSyncPoint
+	uncompress
+	unzClose
+	unzCloseCurrentFile
+	unzGetCurrentFileInfo
+	unzGetFilePos
+	unzGetGlobalComment
+	unzGetGlobalInfo
+	unzGetLocalExtrafield
+	unzGoToFilePos
+	unzGoToFirstFile
+	unzGoToNextFile
+	unzLocateFile
+	unzOpen
+	unzOpen2
+	unzOpenCurrentFile
+	unzOpenCurrentFile2
+	unzOpenCurrentFile3
+	unzOpenCurrentFilePassword
+	unzReadCurrentFile
+	unzStringFileNameCompare
+	unzeof
+	unztell
+	zError
+	zipClose
+	zipCloseFileInZip
+	zipCloseFileInZipRaw
+	zipOpen
+	zipOpen2
+	zipOpenNewFileInZip
+	zipOpenNewFileInZip2
+	zipOpenNewFileInZip3
+	zipWriteInFileInZip
+	zlibCompileFlags
+	zlibVersion
+
+zlib.dll - Imported functions: 
+	CRTDLL.dll 
+		fwrite
+		fread
+		_errno
+		fclose
+		free
+		_vsnprintf
+		fflush
+		fseek
+		fputc
+		malloc
+		clearerr
+		ftell
+		fprintf
+		_fdopen
+		fopen
+		sprintf
+		rand
+		srand
+		time
+		_initterm
+	KERNEL32.dll 
+		CloseHandle
+		CreateFileA
+		GetLastError
+		ReadFile
+		WriteFile
+		SetFilePointer
+		GlobalFree
+		GlobalAlloc
+		GetVersion
+
+
+foxtools.fll: failed - not exists
+
+
+Needed DLLs
+	CRTDLL.dll
+	KERNEL32.dll
+	zlib.dll
+	KERNEL32.dll
+	USER32.dll
+	GDI32.dll
+
+
+PATH: M:\LEGACY_APPS\FRACCTREPORTS_MASTER\XFRX\
+	zlib.dll, date: 2005-12-12 14:43:44, size: 72192, version: 1.2.1.0
+PATH: C:\Windows\system32\
+	CRTDLL.dll, date: 2009-07-13 20:15:08, size: 149019, version: 4.00
+	KERNEL32.dll, date: 2010-11-20 22:24:16, size: 837632, version: 6.1.7600.16385 (win7_rtm.090713-1255)
+	KERNEL32.dll, date: 2010-11-20 22:24:16, size: 837632, version: 6.1.7600.16385 (win7_rtm.090713-1255)
+	USER32.dll, date: 2010-11-20 22:24:22, size: 833024, version: 6.1.7601.17514 (win7sp1_rtm.101119-1850)
+	GDI32.dll, date: 2010-11-20 22:24:16, size: 311296, version: 6.1.7601.17514 (win7sp1_rtm.101119-1850)
+
+
+MODULES:
+	VFP6.EXE C:\Program Files (x86)\Microsoft Visual Studio\Vfp98\, date: 1998-06-16, size: 4192528, version: 6.0.8167.0
+	ntdll.dll C:\Windows\SysWOW64\, date: 2010-11-20, size: 1292096, version: 6.1.7600.16385 (win7_rtm.090713-1255)
+	kernel32.dll C:\Windows\syswow64\, date: 2010-11-20, size: 837632, version: 6.1.7600.16385 (win7_rtm.090713-1255)
+	KERNELBASE.dll C:\Windows\syswow64\, date: 2010-11-20, size: 269824, version: 6.1.7600.16385 (win7_rtm.090713-1255)
+	USER32.dll C:\Windows\syswow64\, date: 2010-11-20, size: 833024, version: 6.1.7601.17514 (win7sp1_rtm.101119-1850)
+	GDI32.dll C:\Windows\syswow64\, date: 2010-11-20, size: 311296, version: 6.1.7601.17514 (win7sp1_rtm.101119-1850)
+	LPK.dll C:\Windows\syswow64\, date: 2009-07-13, size: 25600, version: 6.1.7600.16385 (win7_rtm.090713-1255)
+	USP10.dll C:\Windows\syswow64\, date: 2010-11-20, size: 626176, version: 1.0626.7601.17514 (win7sp1_rtm.101119-1850)
+	msvcrt.dll C:\Windows\syswow64\, date: 2009-07-13, size: 690688, version: 7.0.7600.16385 (win7_rtm.090713-1255)
+	ADVAPI32.dll C:\Windows\syswow64\, date: 2010-11-20, size: 640512, version: 6.1.7600.16385 (win7_rtm.090713-1255)
+	sechost.dll C:\Windows\SysWOW64\, date: 2009-07-13, size: 92160, version: 6.1.7600.16385 (win7_rtm.090713-1255)
+	RPCRT4.dll C:\Windows\syswow64\, date: 2010-11-20, size: 663040, version: 6.1.7600.16385 (win7_rtm.090713-1255)
+	SspiCli.dll C:\Windows\syswow64\, date: 2010-11-20, size: 96768, version: 6.1.7601.17514 (win7sp1_rtm.101119-1850)
+	CRYPTBASE.dll C:\Windows\syswow64\, date: 2009-07-13, size: 36864, version: 6.1.7600.16385 (win7_rtm.090713-1255)
+	WINSPOOL.DRV C:\Windows\system32\, date: 2010-11-20, size: 320000, version: 6.1.7600.16385 (win7_rtm.090713-1255)
+	comdlg32.dll C:\Windows\syswow64\, date: 2010-11-20, size: 485888, version: 6.1.7600.16385 (win7_rtm.090713-1255)
+	SHLWAPI.dll C:\Windows\syswow64\, date: 2010-11-20, size: 350208, version: 6.1.7600.16385 (win7_rtm.090713-1255)
+	COMCTL32.dll C:\Windows\WinSxS\x86_microsoft.windows.common-controls_6595b64144ccf1df_5.82.7601.17514_none_ec83dffa859149af\, date: 2010-11-20, size: 530432, version: 5.82 (win7_rtm.090713-1255)
+	SHELL32.dll C:\Windows\syswow64\, date: 2010-11-20, size: 12872192, version: 6.1.7601.17514 (win7sp1_rtm.101119-1850)
+	VERSION.dll C:\Windows\system32\, date: 2009-07-13, size: 21504, version: 6.1.7600.16385 (win7_rtm.090713-1255)
+	MPR.dll C:\Windows\system32\, date: 2009-07-13, size: 64000, version: 6.1.7600.16385 (win7_rtm.090713-1255)
+	OLEAUT32.dll C:\Windows\syswow64\, date: 2010-11-20, size: 571904, version: 6.1.7601.17514
+	ole32.dll C:\Windows\syswow64\, date: 2010-11-20, size: 1414144, version: 6.1.7600.16385 (win7_rtm.090713-1255)
+	WINMM.dll C:\Windows\system32\, date: 2010-11-20, size: 194048, version: 6.1.7600.16385 (win7_rtm.090713-1255)
+	apphelp.dll C:\Windows\system32\, date: 2010-11-20, size: 295936, version: 6.1.7600.16385 (win7_rtm.090713-1255)
+	AcXtrnal.DLL C:\Windows\AppPatch\, date: 2009-07-13, size: 211968, version: 6.1.7600.16385 (win7_rtm.090713-1255)
+	IMM32.DLL C:\Windows\system32\, date: 2010-11-20, size: 119808, version: 6.1.7601.17514 (win7sp1_rtm.101119-1850)
+	MSCTF.dll C:\Windows\syswow64\, date: 2009-07-13, size: 828928, version: 6.1.7600.16385 (win7_rtm.090713-1255)
+	uxtheme.dll C:\Windows\system32\, date: 2009-07-13, size: 245760, version: 6.1.7600.16385 (win7_rtm.090713-1255)
+	VFP6ENU.DLL C:\Program Files (x86)\Microsoft Visual Studio\Vfp98\, date: 1998-06-16, size: 1094144, version: 6.0.8167.0
+	dwmapi.dll C:\Windows\system32\, date: 2009-07-13, size: 67072, version: 6.1.7600.16385 (win7_rtm.090713-1255)
+	SXS.DLL C:\Windows\system32\, date: 2010-11-20, size: 380416, version: 6.1.7600.16385 (win7_rtm.090713-1255)
+	CRYPTSP.dll C:\Windows\system32\, date: 2009-07-13, size: 78848, version: 6.1.7600.16385 (win7_rtm.090713-1255)
+	rsaenh.dll C:\Windows\system32\, date: 2009-07-13, size: 242936, version: 6.1.7600.16385 (win7_rtm.090713-1255)
+	RpcRtRemote.dll C:\Windows\system32\, date: 2010-11-20, size: 46080, version: 6.1.7601.17514 (win7sp1_rtm.101119-1850)
+	CLBCatQ.DLL C:\Windows\syswow64\, date: 2009-07-13, size: 522240, version: 2001.12.8530.16385 (win7_rtm.090713-1255)
+	VSHELP.DLL C:\Program Files (x86)\Common Files\Microsoft Shared\VS98\, date: 1998-05-26, size: 116938, version: 6.00.8146
+	vshelpui.dll C:\Program Files (x86)\Common Files\Microsoft Shared\VS98\Resources\1033\, date: 1998-06-06, size: 18432, version: 6.00.8159
+	hhctrl.ocx C:\Windows\system32\, date: 2009-07-13, size: 523776, version: 6.1.7600.16385 (win7_rtm.090713-1255)
+	profapi.dll C:\Windows\system32\, date: 2009-07-13, size: 31744, version: 6.1.7600.16385 (win7_rtm.090713-1255)
+	ntmarta.dll C:\Windows\system32\, date: 2009-07-13, size: 121856, version: 6.1.7600.16385 (win7_rtm.090713-1255)
+	WLDAP32.dll C:\Windows\syswow64\, date: 2010-11-20, size: 269824, version: 6.1.7600.16385 (win7_rtm.090713-1255)
+	comctl32.dll C:\Windows\WinSxS\x86_microsoft.windows.common-controls_6595b64144ccf1df_6.0.7601.17514_none_41e6975e2bd6f2b2\, date: 2010-11-20, size: 1680896, version: 6.10 (win7_rtm.090713-1255)
+	drprov.dll C:\Windows\System32\, date: 2009-07-13, size: 18944, version: 6.1.7600.16385 (win7_rtm.090713-1255)
+	WINSTA.dll C:\Windows\System32\, date: 2010-11-20, size: 156672, version: 6.1.7601.17514 (win7sp1_rtm.101119-1850)
+	ntlanman.dll C:\Windows\System32\, date: 2010-11-20, size: 69120, version: 6.1.7600.16385 (win7_rtm.090713-1255)
+	davclnt.dll C:\Windows\System32\, date: 2010-11-20, size: 80384, version: 6.1.7601.17514 (win7sp1_rtm.101119-1850)
+	DAVHLPR.dll C:\Windows\System32\, date: 2009-07-13, size: 19456, version: 6.1.7600.16385 (win7_rtm.090713-1255)
+	wkscli.dll C:\Windows\system32\, date: 2010-11-20, size: 47104, version: 6.1.7601.17514 (win7sp1_rtm.101119-1850)
+	cscapi.dll C:\Windows\system32\, date: 2010-11-20, size: 34816, version: 6.1.7601.17514 (win7sp1_rtm.101119-1850)
+	netutils.dll C:\Windows\system32\, date: 2010-11-20, size: 22528, version: 6.1.7601.17514 (win7sp1_rtm.101119-1850)
+	propsys.dll C:\Windows\system32\, date: 2010-11-20, size: 988160, version: 7.00.7600.16385 (win7_rtm.090713-1255)
+	tiptsf.dll C:\Program Files (x86)\Common Files\microsoft shared\ink\, date: 2009-07-13, size: 348160, version: 6.1.7600.16385 (win7_rtm.090713-1255)
+	WindowsCodecs.dll C:\Windows\system32\, date: 2010-11-20, size: 1010688, version: 6.1.7601.17514 (win7sp1_rtm.101119-1850)
+	EhStorShell.dll C:\Windows\system32\, date: 2009-07-13, size: 189952, version: 6.1.7600.16385 (win7_rtm.090713-1255)
+	SETUPAPI.dll C:\Windows\syswow64\, date: 2010-11-20, size: 1667584, version: 6.1.7600.16385 (win7_rtm.090713-1255)
+	CFGMGR32.dll C:\Windows\syswow64\, date: 2010-11-20, size: 145920, version: 6.1.7601.17514 (win7sp1_rtm.101119-1850)
+	DEVOBJ.dll C:\Windows\syswow64\, date: 2009-07-13, size: 64512, version: 6.1.7600.16385 (win7_rtm.090713-1255)
+	ntshrui.dll C:\Windows\system32\, date: 2010-11-20, size: 442880, version: 6.1.7600.16385 (win7_rtm.090713-1255)
+	srvcli.dll C:\Windows\system32\, date: 2010-11-20, size: 90112, version: 6.1.7601.17514 (win7sp1_rtm.101119-1850)
+	slc.dll C:\Windows\system32\, date: 2009-07-13, size: 27136, version: 6.1.7600.16385 (win7_rtm.090713-1255)
+	cscobj.dll C:\Windows\System32\, date: 2010-11-20, size: 139264, version: 6.1.7600.16385 (win7_rtm.090713-1255)
+	USERENV.dll C:\Windows\System32\, date: 2010-11-20, size: 81920, version: 6.1.7600.16385 (win7_rtm.090713-1255)
+	StructuredQuery.dll C:\Windows\System32\, date: 2010-11-20, size: 363520, version: 7.00.7601.17514 (win7sp1_rtm.101119-1850)
+	Secur32.dll C:\Windows\System32\, date: 2010-11-20, size: 22016, version: 6.1.7601.17514 (win7sp1_rtm.101119-1850)
+	actxprxy.dll C:\Windows\SysWOW64\, date: 2010-11-20, size: 309760, version: 6.1.7601.17514 (win7sp1_rtm.101119-1850)
+	ieproxy.dll C:\Program Files (x86)\Internet Explorer\, date: 2010-11-20, size: 163328, version: 8.00.7601.17514 (win7sp1_rtm.101119-1850)
+	thumbcache.dll C:\Windows\SysWOW64\, date: 2010-11-20, size: 82944, version: 6.1.7600.16385 (win7_rtm.090713-1255)
+	PSAPI.DLL C:\Windows\syswow64\, date: 2009-07-13, size: 6144, version: 6.1.7600.16385 (win7_rtm.090713-1255)
+	SHDOCVW.dll C:\Windows\system32\, date: 2010-11-20, size: 179712, version: 6.1.7600.16385 (win7_rtm.090713-1255)
+	ieframe.DLL C:\Windows\system32\, date: 2010-11-20, size: 10990080, version: 8.00.7600.16385 (win7_rtm.090713-1255)
+	OLEACC.dll C:\Windows\system32\, date: 2009-07-13, size: 233472, version: 7.0.0.0 (win7_rtm.090713-1255)
+	iertutil.dll C:\Windows\syswow64\, date: 2010-11-20, size: 2064384, version: 8.00.7601.17514 (win7sp1_rtm.101119-1850)
+	SearchFolder.dll C:\Windows\system32\, date: 2010-11-20, size: 646144, version: 6.1.7600.16385 (win7_rtm.090713-1255)
+	NetworkExplorer.dll C:\Windows\system32\, date: 2010-11-20, size: 1661440, version: 6.1.7600.16385 (win7_rtm.090713-1255)
+	urlmon.dll C:\Windows\syswow64\, date: 2010-11-20, size: 1229824, version: 8.00.7600.16385 (win7_rtm.090713-1255)
+	WININET.dll C:\Windows\syswow64\, date: 2010-11-20, size: 980992, version: 8.00.7600.16385 (win7_rtm.090713-1255)
+	CRYPT32.dll C:\Windows\syswow64\, date: 2010-11-20, size: 1154048, version: 6.1.7600.16385 (win7_rtm.090713-1255)
+	MSASN1.dll C:\Windows\syswow64\, date: 2010-11-20, size: 34304, version: 6.1.7601.17514 (win7sp1_rtm.101119-1850)
+	DUser.dll C:\Windows\system32\, date: 2009-07-13, size: 181248, version: 6.1.7600.16385 (win7_rtm.090713-1255)
+	CRTDLL.dll C:\Windows\system32\, date: 2009-07-13, size: 149019, version: 4.00
+	wpdshext.dll C:\Windows\system32\, date: 2010-11-20, size: 2311168, version: 6.1.7600.16385 (win7_rtm.090713-1255)
+	gdiplus.dll C:\Windows\WinSxS\x86_microsoft.windows.gdiplus_6595b64144ccf1df_1.1.7601.17514_none_72d18a4386696c80\, date: 2010-11-20, size: 1624576, version: 6.1.7601.17514 (win7sp1_rtm.101119-1850)
+	PortableDeviceApi.dll C:\Windows\system32\, date: 2010-11-20, size: 547840, version: 6.1.7600.16385 (win7_rtm.090713-1255)
+	WINTRUST.dll C:\Windows\syswow64\, date: 2010-11-20, size: 172032, version: 6.1.7601.17514 (win7sp1_rtm.101119-1850)
+	audiodev.dll C:\Windows\system32\, date: 2010-11-20, size: 243712, version: 6.1.7600.16385 (win7_rtm.090713-1255)
+	WMVCore.DLL C:\Windows\system32\, date: 2010-11-20, size: 2504192, version: 12.0.7601.17514 (win7sp1_rtm.101119-1850)
+	WMASF.DLL C:\Windows\system32\, date: 2009-07-13, size: 237568, version: 12.0.7600.16385 (win7_rtm.090713-1255)
+	EhStorAPI.dll C:\Windows\system32\, date: 2010-11-20, size: 128512, version: 6.1.7600.16385 (win7_rtm.090713-1255)
+
+
+PRINTERS:
+	Printer name: Microsoft XPS Document Writer Port: XPSPort:
+		dmDeviceName:    
+		dmSpecVersion:             0 0x00000000
+		dmDriverVersion:           0 0x00000000
+		dmSize:                    0 0x00000000
+		dmDriverExtra:             0 0x00000000
+		dmFields:                  0 0x00000000
+		dmDriverExtraData: 0x
+
+	Printer name: Fax Port: SHRFAX:
+		dmDeviceName:    
+		dmSpecVersion:             0 0x00000000
+		dmDriverVersion:           0 0x00000000
+		dmSize:                    0 0x00000000
+		dmDriverExtra:             0 0x00000000
+		dmFields:                  0 0x00000000
+		dmDriverExtraData: 0x
+
